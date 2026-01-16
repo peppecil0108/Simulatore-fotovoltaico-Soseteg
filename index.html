@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>Simulatore Fotovoltaico - Step Version</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+body { font-family: Arial, Helvetica, sans-serif; margin: 12px; }
+.step { display:none; }
+.step.active { display:block; }
+#navigation { margin:15px 0; display:flex; gap:10px; }
+button { padding:8px 12px; cursor:pointer; }
+#map { height:520px; width:100%; border:1px solid #ccc; }
+.results { background:#f8f8f8; margin-top:10px; padding:12px; border-radius:6px; }
+.results div { margin:6px 0; }
+.controls-inline { display:flex; gap:8px; margin-top:8px; }
+#formSection { background:#fff; padding:12px; border-radius:6px; border:1px solid #eee; }
+label{ display:block; margin-top:8px; font-weight:600; }
+select,input[type="number"],input[type="text"]{ padding:8px; width:260px; }
+.small { font-size:0.9rem; color:#555; margin-top:6px; }
+.output { background:#eef7ff; padding:10px; border-radius:6px; margin-top:8px; }
+</style>
+</head>
+<body>
+<h2>Simulatore Fotovoltaico1 — Versione a Step</h2>
+<div id="navigation">
+<button onclick="goStep(1)">Step 1: Indirizzo</button>
+<button onclick="goStep(2)">Step 2: Mappa</button>
+<button onclick="goStep(3)">Step 3: Calcolo</button>
+</div>
+<!-- STEP 1 -->
+<div id="step1" class="step active">
+<h3>1. Inserisci indirizzo</h3>
+<input id="address" type="text" placeholder="Inserisci indirizzo..." />
+<button id="btnSearch">Cerca</button>
+<button onclick="goStep(2)">Continua</button>
+</div>
+<!-- STEP 2 -->
+<div id="step2" class="step">
+<h3>2. Disegna il tetto sulla mappa</h3>
+<button id="btnFindOSM">Trova tetto (OSM)</button>
+<button id="btnClear">Resetta</button>
+<div class="small">Dopo il disegno apparirà il riepilogo.</div>
+<div id="map"></div>
+<div class="results" id="summary" style="display:none;">
+<div><strong>Area tetto:</strong> <span id="areaVal">0</span> m²</div>
+<div><strong>Orientamento medio (azimuth):</strong> <span id="azimuthVal">—</span> °</div>
+<div class="controls-inline">
+<button id="btnRedraw">Ridisegna</button>
+<button onclick="goStep(3)">Continua</button>
+</div>
+<button onclick="goStep(1)">Indietro</button>
+</div>
+</div>
+<!-- STEP 3 -->
+<div id="step3" class="step">
+<h3>3. Inserisci dati di consumo e calcola</h3>
+<div id="formSection">
+<label>Tipologia tetto</label>
+<select id="roofType"><option value="flat">Piano</option><option value="sloped">A falde</option></select>
+<label>Numero locali</label>
+<select id="rooms"><option value="monolocale">Monolocale</option><option value="bilocale">Bilocale</option><option value="trilocale">Trilocale</option><option value="quad">Quadrilocale+</option></select>
+<label>Tipologia pannello (W)</label>
+<select id="panelW"><option value="400">400</option><option value="450">450</option><option value="500">500</option></select>
+<label>Vuoi accumulo?</label>
+<select id="battery"><option value="no">No</option><option value="yes">Sì</option></select>
+<label>Numero persone</label><input type="number" id="people" value="2"/>
+<label>Riscaldamento</label>
+<select id="heating"><option value="gas">Gas</option><option value="electric">Elettrico</option><option value="heatpump">Pompa</option><option value="mixed">Misto</option></select>
+<label>Consumi</label>
+<input type="radio" name="consType" id="consDefault" value="default" checked> Default<br>
+<input type="radio" name="consType" id="consLastBill" value="bill"> Ultima bolletta <input type="number" id="lastBill" disabled><br>
+<input type="radio" name="consType" id="consAnnual" value="annual"> Consumo annuo <input type="number" id="annualKwh" disabled><br>
+<button id="btnCalculate">Calcola</button>
+<button onclick="goStep(2)">Indietro</button>
+<div class="output" id="calcOutput" style="display:none;">
+<div><strong>Potenza impianto:</strong> <span id="outKw">0</span> kWp</div>
+<div><strong>Numero pannelli:</strong> <span id="outPanels">0</span></div>
+<div><strong>Produzione annua:</strong> <span id="outProd">0</span></div>
+<div><strong>Copertura consumi:</strong> <span id="outCover">—</span></div>
+<div class="small" id="outRegion"></div>
+</div>
+</div>
+</div>
+<script>
+let map, autocomplete, drawingManager, polygon;
+
+function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 18,
+        center: { lat: 41.9028, lng: 12.4964 }
+    });
+
+    const input = document.getElementById("address");
+    autocomplete = new google.maps.places.Autocomplete(input, { types: ["geocode"] });
+
+    autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
+        map.setCenter(place.geometry.location);
+        goStep(2);
+    });
+
+    document.getElementById("btnSearch").onclick = () => {
+        const place = autocomplete.getPlace();
+        if (!place || !place.geometry) return;
+        map.setCenter(place.geometry.location);
+        goStep(2);
+    };
+
+    drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: google.maps.drawing.OverlayType.POLYGON,
+        drawingControl: true,
+        drawingControlOptions: {
+            position: google.maps.ControlPosition.TOP_CENTER,
+            drawingModes: [google.maps.drawing.OverlayType.POLYGON]
+        },
+        polygonOptions: {
+            fillColor: "#00FF00",
+            fillOpacity: 0.35,
+            strokeWeight: 2,
+            clickable: true,
+            editable: true
+        }
+    });
+    drawingManager.setMap(map);
+
+    google.maps.event.addListener(drawingManager, "polygoncomplete", poly => {
+        if (polygon) polygon.setMap(null);
+        polygon = poly;
+        computeSummary();
+    });
+
+    document.getElementById("btnClear").onclick = () => {
+        if (polygon) polygon.setMap(null);
+        polygon = null;
+        document.getElementById("summary").style.display = "none";
+    };
+}
+
+function computeSummary() {
+    const area = google.maps.geometry.spherical.computeArea(polygon.getPath());
+    document.getElementById("areaVal").innerText = area.toFixed(2);
+
+    let totalBearing = 0; let count = 0;
+    const path = polygon.getPath().getArray();
+    for (let i = 0; i < path.length - 1; i++) {
+        totalBearing += google.maps.geometry.spherical.computeHeading(path[i], path[i + 1]);
+        count++;
+    }
+
+    document.getElementById("azimuthVal").innerText = (totalBearing / count).toFixed(1);
+    document.getElementById("summary").style.display = "block";
+}
+
+function goStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step' + n).classList.add('active');
+    
+}
+  document.getElementById('btnCalculate').addEventListener('click', doFinalCalculation);
+function doFinalCalculation() {
+    alert("Calcolo non ancora implementato");
+}
+function doFinalCalculation() {
+    if (!polygon) {
+        alert("Disegna prima il tetto sulla mappa");
+        return;
+    }
+
+    // Area tetto
+    const area = google.maps.geometry.spherical.computeArea(polygon.getPath());
+
+    // Dati pannello
+    const panelW = Number(document.getElementById("panelW").value);
+    const panelArea = 1.8; // m² medi per pannello
+
+    // Calcoli base
+    const panels = Math.floor(area / panelArea);
+    const kwp = (panels * panelW) / 1000;
+
+    // Produzione media Italia ~1200 kWh/kWp
+    const production = Math.round(kwp * 1200);
+
+    // Output
+    document.getElementById("outKw").innerText = kwp.toFixed(2);
+    document.getElementById("outPanels").innerText = panels;
+    document.getElementById("outProd").innerText = production;
+
+    document.getElementById("calcOutput").style.display = "block";
+}
+
+
+  
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
+</body>
+</html>
