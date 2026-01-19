@@ -109,7 +109,6 @@ input, select { padding:8px; width:100%; }
 <!-- CALCOLI VISIBILI -->
 <div class="box">
 <h4>Calcoli</h4>
-
 <div class="calc" id="calcBox"></div>
 </div>
 
@@ -118,7 +117,7 @@ input, select { padding:8px; width:100%; }
 
 <script>
 // ===== PARAMETRI COMMERCIALI =====
-const PANEL_AREA = 1.8;
+const PANEL_AREA = 2; // 2 m² per pannello
 const SPECIFIC_YIELD = 1200;
 const ENERGY_COST = 0.30;
 const COST_FV_KWP = 1600;
@@ -136,7 +135,9 @@ function consumoMedio(p){
  if(p<=1) return 1800;
  if(p===2) return 2700;
  if(p===3) return 3600;
- return 4500;
+ if(p===4) return 4500;
+ // >4 persone: aumento 15% per ogni persona in più
+ return 4500 * (1 + 0.15*(p-4));
 }
 
 // ===== CALCOLO =====
@@ -148,7 +149,7 @@ function calculate(){
  const battSize = +batteryEl.value;
 
  const baseCons = consumoMedio(people);
- const target = baseCons * 1.2;
+ const target = baseCons * 1.2; // +20% margine
 
  const tiltFactor = Math.cos((tilt-30)*Math.PI/180);
  const kwhPanel = panelW/1000 * SPECIFIC_YIELD * tiltFactor;
@@ -159,61 +160,57 @@ function calculate(){
  const kwp = panels * panelW / 1000;
  const production = kwp * SPECIFIC_YIELD * tiltFactor;
 
- const areaPerc = Math.round((panels*PANEL_AREA)/roof*100);
+ const areaCovered = panels * PANEL_AREA;
+ const areaPerc = Math.round((areaCovered / roof) * 100);
 
 // ===== ACCUMULO FINALE - RISPETTA SCELTA UTENTE =====
 const dailyConsumption = baseCons / 365;
 const nightConsumption = dailyConsumption * 0.45; // consumo notturno stimato
 
-// fabbisogno reale (efficienza 80%)
-const batteryNeeded = nightConsumption / 0.8;
+let batteryNeeded = nightConsumption / 0.8; // fabbisogno reale
 
-// capacità scelta dall'utente
 const battCapSingle = battSize;
-
-// numero batterie: parte da 1
 let battNum = 1;
 
-// aumenta solo se fabbisogno > batteria + 20% (margine)
+// aumenta solo se fabbisogno > batteria scelta + 20%
 if(batteryNeeded > battCapSingle * 1.2){
     battNum = Math.ceil(batteryNeeded / battCapSingle);
 }
 
-// capacità totale accumulo
 const battCap = battNum * battCapSingle;
 
- // ===== RISPARMI =====
- const savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
- const savedEuro = savedKwh * ENERGY_COST;
- const investment = kwp*COST_FV_KWP + battCap*COST_BATT_KWH;
- const payback = investment / savedEuro;
+// ===== RISPARMI =====
+const savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
+const savedEuro = savedKwh * ENERGY_COST;
+const investment = kwp*COST_FV_KWP + battCap*COST_BATT_KWH;
+const payback = investment / savedEuro;
 
- // ===== OUTPUT =====
- panelsEl.innerText = panels;
- kwpEl.innerText = kwp.toFixed(2)+" kWp";
- prodEl.innerText = Math.round(production)+" kWh";
- areaPercEl.innerText = areaPerc+" %";
+// ===== OUTPUT =====
+panelsEl.innerText = panels;
+kwpEl.innerText = kwp.toFixed(2)+" kWp";
+prodEl.innerText = Math.round(production)+" kWh";
+areaPercEl.innerText = `${areaCovered} m² su ${roof} m² (${areaPerc}%)`;
 
- battNumEl.innerText = battNum;
- battCapEl.innerText = battCap+" kWh";
+battNumEl.innerText = battNum;
+battCapEl.innerText = battCap+" kWh";
 
- saveEuroEl.innerText = "€ "+Math.round(savedEuro)+" / anno";
- paybackEl.innerText = payback.toFixed(1)+" anni";
+saveEuroEl.innerText = "€ "+Math.round(savedEuro)+" / anno";
+paybackEl.innerText = payback.toFixed(1)+" anni";
 
 // ===== CALCOLI VISIBILI =====
 calcBox.innerHTML = `
 <h4>📌 Calcoli passo passo</h4>
 
 <b>1️⃣ Consumi:</b><br>
-- Consumo medio stimato: <b>${baseCons} kWh/anno</b><br>
+- Consumo medio stimato: <b>${baseCons.toFixed(0)} kWh/anno</b><br>
 - Target con +20% margine: <b>${Math.round(target)} kWh/anno</b><br><br>
 
 <b>2️⃣ Produzione pannelli:</b><br>
-- Produzione per pannello: ${panelW} W × ${SPECIFIC_YIELD} kWh/kWp × fattore inclinazione (${tiltFactor.toFixed(2)}) = <b>${kwhPanel.toFixed(0)} kWh/anno</b><br>
+- Produzione per pannello: ${panelW} W × ${SPECIFIC_YIELD} × fattore inclinazione (${tiltFactor.toFixed(2)}) = <b>${kwhPanel.toFixed(0)} kWh/anno</b><br>
 - Numero pannelli necessari: <b>${panels}</b><br>
 - Potenza totale impianto: <b>${kwp.toFixed(2)} kWp</b><br>
 - Produzione totale stimata: <b>${Math.round(production)} kWh/anno</b><br>
-- Copertura tetto: <b>${areaPerc} %</b><br><br>
+- Copertura tetto: <b>${areaCovered} m²</b> su <b>${roof} m²</b> (${areaPerc} %)<br><br>
 
 <b>3️⃣ Accumulo batteria:</b><br>
 - Batteria scelta: <b>${battSize} kWh</b><br>
@@ -230,7 +227,6 @@ calcBox.innerHTML = `
 `;
 
 goStep(3);
-
 }
 
 // ===== ELEMENTI =====
@@ -250,7 +246,6 @@ const saveEuroEl = document.getElementById("saveEuro");
 const paybackEl = document.getElementById("payback");
 const calcBox = document.getElementById("calcBox");
 </script>
-
 
 </body>
 </html>
