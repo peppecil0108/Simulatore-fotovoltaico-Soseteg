@@ -2,214 +2,255 @@
 <html lang="it">
 <head>
 <meta charset="utf-8"/>
-<title>Simulatore Fotovoltaico</title>
+<title>Simulatore Fotovoltaico – Demo Commerciale</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-body { font-family: Arial, Helvetica, sans-serif; margin: 12px; }
+body { font-family: Arial, sans-serif; margin:12px; background:#fafafa;}
 .step { display:none; }
 .step.active { display:block; }
-#navigation { margin:15px 0; display:flex; gap:10px; }
-button { padding:8px 12px; cursor:pointer; }
-#map { height:520px; width:100%; border:1px solid #ccc; }
-.results { background:#f8f8f8; margin-top:10px; padding:12px; border-radius:6px; }
-.controls-inline { display:flex; gap:8px; margin-top:8px; }
-#formSection { background:#fff; padding:12px; border-radius:6px; border:1px solid #eee; }
-label{ display:block; margin-top:8px; font-weight:600; }
-select,input[type="number"],input[type="text"]{ padding:8px; width:260px; }
-.small { font-size:0.9rem; color:#555; margin-top:6px; }
-.output { background:#eef7ff; padding:10px; border-radius:6px; margin-top:8px; }
+button { padding:10px; width:100%; margin-top:10px; cursor:pointer; }
+label { font-weight:600; margin-top:10px; display:block; }
+input, select { padding:8px; width:100%; }
+
+.box { background:#fff; border-radius:8px; padding:14px; margin-top:12px; box-shadow:0 2px 6px rgba(0,0,0,.05); }
+.box h4 { margin-top:0; }
+
+.chart { display:flex; height:160px; gap:20px; align-items:flex-end; margin-top:10px;}
+.bar { width:45%; background:#4caf50; color:#fff; text-align:center; font-weight:bold;}
+.bar.winter { background:#2196f3;}
+
+.calc { font-size:0.9rem; color:#333; background:#f3f6f9; padding:10px; border-radius:6px; margin-top:8px;}
+
+@media(min-width:768px){
+ body { max-width:760px; margin:auto; }
+}
 </style>
 </head>
 
 <body>
 
-<h2>Simulatore Fotovoltaico — Versione Completa</h2>
-
-<div id="navigation">
-<button onclick="goStep(1)">Step 1</button>
-<button onclick="goStep(2)">Step 2</button>
-<button onclick="goStep(3)">Step 3</button>
-</div>
+<h2>Simulatore Fotovoltaico</h2>
+<p><strong>Versione demo</strong> – calcoli visibili</p>
 
 <!-- STEP 1 -->
-<div id="step1" class="step active">
-<h3>1️⃣ Inserisci indirizzo</h3>
-<input id="address" type="text" placeholder="Inserisci indirizzo..." />
-<button id="btnSearch">Cerca</button>
+<div class="step active" id="step1">
+<div class="box">
+<h4>1️⃣ Abitazione</h4>
+
+<label>Numero persone</label>
+<input type="number" id="people" value="3" min="1">
+
+<label>Superficie tetto disponibile (m²)</label>
+<input type="number" id="roof" value="50">
+
 <button onclick="goStep(2)">Continua</button>
+</div>
 </div>
 
 <!-- STEP 2 -->
-<div id="step2" class="step">
-<h3>2️⃣ Disegna il tetto</h3>
-<button id="btnClear">Resetta</button>
-<div id="map"></div>
+<div class="step" id="step2">
+<div class="box">
+<h4>2️⃣ Impianto</h4>
 
-<div class="results" id="summary" style="display:none;">
-<div><strong>Area tetto:</strong> <span id="areaVal">0</span> m²</div>
-<div><strong>Orientamento medio:</strong> <span id="azimuthVal">—</span> °</div>
-<button onclick="goStep(3)">Continua</button>
-</div>
-
-<button onclick="goStep(1)">Indietro</button>
-</div>
-
-<!-- STEP 3 -->
-<div id="step3" class="step">
-<h3>3️⃣ Consumi e calcolo</h3>
-
-<div id="formSection">
-
-<label>Tipologia pannello (W)</label>
+<label>Potenza pannello (W)</label>
 <select id="panelW">
 <option value="400">400</option>
 <option value="450">450</option>
 <option value="500">500</option>
 </select>
 
-<label>Numero persone</label>
-<input type="number" id="people" value="2" min="1"/>
+<label>Inclinazione pannelli (°)</label>
+<input type="number" id="tilt" value="30">
 
-<label>Consumi</label>
-<input type="radio" name="consType" value="default" checked> Default<br>
-<input type="radio" name="consType" value="bill"> Ultima bolletta
-<input type="number" id="lastBill" disabled><br>
-<input type="radio" name="consType" value="annual"> Consumo annuo
-<input type="number" id="annualKwh" disabled><br>
+<label>Batteria singola (kWh)</label>
+<select id="battery">
+<option value="5">5</option>
+<option value="7">7</option>
+<option value="10">10</option>
+</select>
 
-<button id="btnCalculate">Calcola</button>
-<button onclick="goStep(2)">Indietro</button>
-
-<div class="output" id="calcOutput" style="display:none;">
-<div><strong>Potenza impianto:</strong> <span id="outKw"></span> kWp</div>
-<div><strong>Pannelli installabili:</strong> <span id="outPanels"></span></div>
-<div><strong>Produzione annua:</strong> <span id="outProd"></span></div>
-<div><strong>Copertura consumi:</strong> <span id="outCover"></span></div>
+<button onclick="calculate()">Calcola</button>
+</div>
 </div>
 
+<!-- STEP 3 -->
+<div class="step" id="step3">
+
+<!-- RISULTATI -->
+<div class="box">
+<h4>📊 Risultato impianto</h4>
+
+<div><strong>Pannelli:</strong> <span id="panels"></span></div>
+<div><strong>Potenza:</strong> <span id="kwp"></span></div>
+<div><strong>Produzione annua:</strong> <span id="prod"></span></div>
+<div><strong>Copertura tetto:</strong> <span id="areaPerc"></span></div>
 </div>
+
+<!-- BATTERIE -->
+<div class="box">
+<h4>🔋 Accumulo</h4>
+<div><strong>Batterie:</strong> <span id="battNum"></span></div>
+<div><strong>Capacità totale:</strong> <span id="battCap"></span></div>
+</div>
+
+<!-- RISPARMI -->
+<div class="box">
+<h4>💰 Risparmio stimato</h4>
+<div><strong>Risparmio annuo:</strong> <span id="saveEuro"></span></div>
+<div><strong>Rientro investimento:</strong> <span id="payback"></span></div>
+
+<div class="chart">
+  <div class="bar">75%</div>
+  <div class="bar winter">35%</div>
+</div>
+</div>
+
+<!-- CALCOLI VISIBILI -->
+<div class="box">
+<h4>Calcoli</h4>
+
+<div class="calc" id="calcBox"></div>
+</div>
+
+<button onclick="goStep(1)">Nuova simulazione</button>
 </div>
 
 <script>
-let map, polygon, drawingManager, autocomplete;
+// ===== PARAMETRI COMMERCIALI =====
+const PANEL_AREA = 1.8;
+const SPECIFIC_YIELD = 1200;
+const ENERGY_COST = 0.30;
+const COST_FV_KWP = 1600;
+const COST_BATT_KWH = 800;
+const SELF_CONSUMPTION = 0.55;
 
-// ================= MAPPA =================
-function initMap() {
-    map = new google.maps.Map(document.getElementById("map"), {
-        zoom: 18,
-        center: { lat: 41.9028, lng: 12.4964 }
-    });
-
-    autocomplete = new google.maps.places.Autocomplete(
-        document.getElementById("address")
-    );
-
-    drawingManager = new google.maps.drawing.DrawingManager({
-        drawingMode: google.maps.drawing.OverlayType.POLYGON,
-        drawingControl: true,
-        polygonOptions: {
-            fillColor: "#00ff00",
-            fillOpacity: 0.35,
-            strokeWeight: 2,
-            editable: true
-        }
-    });
-
-    drawingManager.setMap(map);
-
-    google.maps.event.addListener(drawingManager, "polygoncomplete", poly => {
-        if (polygon) polygon.setMap(null);
-        polygon = poly;
-        updateSummary();
-    });
-
-    document.getElementById("btnClear").onclick = () => {
-        if (polygon) polygon.setMap(null);
-        polygon = null;
-        document.getElementById("summary").style.display = "none";
-    };
+// ===== STEP =====
+function goStep(n){
+ document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+ document.getElementById('step'+n).classList.add('active');
 }
 
-// ================= STEP =================
-function goStep(n) {
-    document.querySelectorAll(".step").forEach(s => s.classList.remove("active"));
-    document.getElementById("step" + n).classList.add("active");
+// ===== CONSUMI =====
+function consumoMedio(p){
+ if(p<=1) return 1800;
+ if(p===2) return 2700;
+ if(p===3) return 3600;
+ return 4500;
 }
 
-// ================= RIEPILOGO TETTO =================
-function updateSummary() {
-    const area = google.maps.geometry.spherical.computeArea(polygon.getPath());
-    document.getElementById("areaVal").innerText = area.toFixed(1);
+// ===== CALCOLO =====
+function calculate(){
+ const people = +peopleEl.value;
+ const roof = +roofEl.value;
+ const panelW = +panelWEl.value;
+ const tilt = +tiltEl.value;
+ const battSize = +batteryEl.value;
 
-    let total = 0;
-    const path = polygon.getPath().getArray();
-    for (let i = 0; i < path.length - 1; i++) {
-        total += google.maps.geometry.spherical.computeHeading(path[i], path[i+1]);
-    }
-    document.getElementById("azimuthVal").innerText = (total / path.length).toFixed(1);
+ const baseCons = consumoMedio(people);
+ const target = baseCons * 1.2;
 
-    document.getElementById("summary").style.display = "block";
+ const tiltFactor = Math.cos((tilt-30)*Math.PI/180);
+ const kwhPanel = panelW/1000 * SPECIFIC_YIELD * tiltFactor;
+
+ const maxPanels = Math.floor(roof/PANEL_AREA);
+ const panels = Math.min(maxPanels, Math.ceil(target/kwhPanel));
+
+ const kwp = panels * panelW / 1000;
+ const production = kwp * SPECIFIC_YIELD * tiltFactor;
+
+ const areaPerc = Math.round((panels*PANEL_AREA)/roof*100);
+
+// ===== ACCUMULO FINALE - RISPETTA SCELTA UTENTE =====
+const dailyConsumption = baseCons / 365;
+const nightConsumption = dailyConsumption * 0.45; // consumo notturno stimato
+
+// fabbisogno reale (efficienza 80%)
+const batteryNeeded = nightConsumption / 0.8;
+
+// capacità scelta dall'utente
+const battCapSingle = battSize;
+
+// numero batterie: parte da 1
+let battNum = 1;
+
+// aumenta solo se fabbisogno > batteria + 20% (margine)
+if(batteryNeeded > battCapSingle * 1.2){
+    battNum = Math.ceil(batteryNeeded / battCapSingle);
 }
 
-// ================= CAMPI CONSUMO =================
-document.querySelectorAll('input[name="consType"]').forEach(r => {
-    r.addEventListener("change", () => {
-        lastBill.disabled = true;
-        annualKwh.disabled = true;
-        if (r.value === "bill") lastBill.disabled = false;
-        if (r.value === "annual") annualKwh.disabled = false;
-    });
-});
+// capacità totale accumulo
+const battCap = battNum * battCapSingle;
 
-// ================= CALCOLO =================
-document.getElementById("btnCalculate").addEventListener("click", doCalculation);
+ // ===== RISPARMI =====
+ const savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
+ const savedEuro = savedKwh * ENERGY_COST;
+ const investment = kwp*COST_FV_KWP + battCap*COST_BATT_KWH;
+ const payback = investment / savedEuro;
 
-function doCalculation() {
-    if (!polygon) {
-        alert("Disegna prima il tetto");
-        return;
-    }
+ // ===== OUTPUT =====
+ panelsEl.innerText = panels;
+ kwpEl.innerText = kwp.toFixed(2)+" kWp";
+ prodEl.innerText = Math.round(production)+" kWh";
+ areaPercEl.innerText = areaPerc+" %";
 
-    const area = google.maps.geometry.spherical.computeArea(polygon.getPath());
-    const panelW = Number(panelWSelect.value || panelW.value);
-    const panelArea = 1.8;
-    const people = Number(document.getElementById("people").value);
+ battNumEl.innerText = battNum;
+ battCapEl.innerText = battCap+" kWh";
 
-    let consumption;
-    const type = document.querySelector('input[name="consType"]:checked').value;
+ saveEuroEl.innerText = "€ "+Math.round(savedEuro)+" / anno";
+ paybackEl.innerText = payback.toFixed(1)+" anni";
 
-    if (type === "annual") consumption = Number(annualKwh.value);
-    else if (type === "bill") consumption = Number(lastBill.value);
-    else consumption = consumoMedio(people);
+// ===== CALCOLI VISIBILI =====
+calcBox.innerHTML = `
+<h4>📌 Calcoli passo passo</h4>
 
-    const maxPanels = Math.floor(area / panelArea);
-    const kwhPerPanel = (panelW / 1000) * 1200;
-    const neededPanels = Math.ceil(consumption / kwhPerPanel);
+<b>1️⃣ Consumi:</b><br>
+- Consumo medio stimato: <b>${baseCons} kWh/anno</b><br>
+- Target con +20% margine: <b>${Math.round(target)} kWh/anno</b><br><br>
 
-    const finalPanels = Math.min(maxPanels, neededPanels);
-    const kwp = (finalPanels * panelW) / 1000;
-    const production = Math.round(kwp * 1200);
-    const coverage = Math.min(100, Math.round((production / consumption) * 100));
+<b>2️⃣ Produzione pannelli:</b><br>
+- Produzione per pannello: ${panelW} W × ${SPECIFIC_YIELD} kWh/kWp × fattore inclinazione (${tiltFactor.toFixed(2)}) = <b>${kwhPanel.toFixed(0)} kWh/anno</b><br>
+- Numero pannelli necessari: <b>${panels}</b><br>
+- Potenza totale impianto: <b>${kwp.toFixed(2)} kWp</b><br>
+- Produzione totale stimata: <b>${Math.round(production)} kWh/anno</b><br>
+- Copertura tetto: <b>${areaPerc} %</b><br><br>
 
-    outKw.innerText = kwp.toFixed(2);
-    outPanels.innerText = finalPanels;
-    outProd.innerText = production + " kWh";
-    outCover.innerText = coverage + "%";
+<b>3️⃣ Accumulo batteria:</b><br>
+- Batteria scelta: <b>${battSize} kWh</b><br>
+- Fabbisogno notturno stimato: <b>${(dailyConsumption*0.45).toFixed(2)} kWh/giorno</b><br>
+- Capacità necessaria (efficienza 80%): <b>${batteryNeeded.toFixed(2)} kWh</b><br>
+- Numero batterie consigliato: <b>${battNum}</b><br>
+- Capacità totale accumulo: <b>${battCap} kWh</b><br><br>
 
-    calcOutput.style.display = "block";
+<b>4️⃣ Risparmio e payback:</b><br>
+- Energia autoconsumata stimata: <b>${Math.round(savedKwh)} kWh/anno</b><br>
+- Risparmio annuo in bolletta: <b>€ ${Math.round(savedEuro)}</b><br>
+- Costo impianto FV + batterie: <b>€ ${Math.round(investment)}</b><br>
+- Tempo stimato di rientro: <b>${payback.toFixed(1)} anni</b>
+`;
+
+goStep(3);
+
 }
 
-// ================= CONSUMI MEDI =================
-function consumoMedio(p) {
-    if (p === 1) return 1800;
-    if (p === 2) return 2700;
-    if (p === 3) return 3600;
-    return 4500;
-}
+// ===== ELEMENTI =====
+const peopleEl = document.getElementById("people");
+const roofEl = document.getElementById("roof");
+const panelWEl = document.getElementById("panelW");
+const tiltEl = document.getElementById("tilt");
+const batteryEl = document.getElementById("battery");
+
+const panelsEl = document.getElementById("panels");
+const kwpEl = document.getElementById("kwp");
+const prodEl = document.getElementById("prod");
+const areaPercEl = document.getElementById("areaPerc");
+const battNumEl = document.getElementById("battNum");
+const battCapEl = document.getElementById("battCap");
+const saveEuroEl = document.getElementById("saveEuro");
+const paybackEl = document.getElementById("payback");
+const calcBox = document.getElementById("calcBox");
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
 
 </body>
 </html>
