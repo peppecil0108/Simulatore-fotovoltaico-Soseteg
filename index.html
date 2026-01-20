@@ -79,6 +79,11 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 <!-- STEP 3 -->
 <div class="step" id="step3">
 
+<div id="roofWarningBox" class="box" style="display:none; background:#fff3cd; color:#856404; border:1px solid #ffeeba;">
+<!-- qui comparirà il messaggio di tetto insufficiente -->
+</div>
+
+
 <div class="box">
 <h4>📊 Risultato impianto</h4>
 <div>Pannelli: <b><span id="panels"></span></b></div>
@@ -105,6 +110,7 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 </div>
 
 
+
 <div class="box">
 <h4>📌 Calcoli dettagliati (passo-passo)</h4>
 <div class="calc" id="calcBox"></div>
@@ -117,6 +123,10 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 </div>
 
 <script>
+
+
+
+
 // PARAMETRI
 const PANEL_AREA = 2;
 const SPECIFIC_YIELD = 1200;
@@ -190,6 +200,19 @@ function calculate(){
  const investment = kwp*COST_FV_KWP + battCap*COST_BATT_KWH;
  const payback = investment / savedEuro;
 
+let roofWarning = "";
+if (panels < panelsByEnergy) {
+    const areaNeeded = panelsByEnergy * PANEL_AREA;
+    roofWarningBox.style.display = "block";
+    roofWarningBox.innerHTML = `
+⚠️ Attenzione: la superficie tetto disponibile non è sufficiente a coprire i consumi stimati. 
+Il simulatore installa solo ${panels} pannelli (${areaUsed} m²), mentre ne servirebbero ${panelsByEnergy} pannelli (${areaNeeded} m²) per coprire interamente il fabbisogno stimato.`;
+} else {
+    roofWarningBox.style.display = "none";
+}
+
+
+
  // OUTPUT
  panelsEl.innerText = panels;
  areaUsedEl.innerText = areaUsed+" m²";
@@ -206,7 +229,9 @@ function calculate(){
  calcBox.innerHTML = `
  
 <em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Non costituiscono un’offerta vincolante né una proposta commerciale. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em>
-<br><br><br>
+<br><br>
+
+${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 
 <b>1️⃣ Consumi</b><br>
 • Persone: ${people}<br>
@@ -255,6 +280,7 @@ const lastBillEl = document.getElementById("lastBill");
 const panelWEl = document.getElementById("panelW");
 const tiltEl = document.getElementById("tilt");
 const batteryEl = document.getElementById("battery");
+const roofWarningBox = document.getElementById("roofWarningBox");
 
 const panelsEl = document.getElementById("panels");
 const areaUsedEl = document.getElementById("areaUsed");
