@@ -2,84 +2,32 @@
 <html lang="it">
 <head>
 <meta charset="utf-8"/>
-<title>Simulatore Fotovoltaico – Demo Commerciale</title>
+<title>Simulatore Fotovoltaico</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
 <style>
-body {
- font-family: Arial, sans-serif;
- margin:12px;
- background:#f4f6f8;
- color:#222;
-}
+body { font-family: Arial, sans-serif; margin:12px; background:#f4f6f8; color:#222; }
 h2 { text-align:center; }
 .step { display:none; }
 .step.active { display:block; }
 
-button {
- padding:12px;
- width:100%;
- margin-top:12px;
- cursor:pointer;
- background:#2e7d32;
- color:#fff;
- border:none;
- border-radius:6px;
- font-size:1rem;
-}
-button.secondary {
- background:#546e7a;
-}
+button { padding:12px; width:100%; margin-top:12px; cursor:pointer; background:#2e7d32; color:#fff; border:none; border-radius:6px; font-size:1rem; }
+button.secondary { background:#546e7a; }
 
 label { font-weight:600; margin-top:10px; display:block; }
-input, select {
- padding:8px;
- width:100%;
- border-radius:4px;
- border:1px solid #ccc;
-}
+input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #ccc; }
 
-.box {
- background:#fff;
- border-radius:8px;
- padding:16px;
- margin-top:14px;
- box-shadow:0 2px 8px rgba(0,0,0,.06);
-}
+.box { background:#fff; border-radius:8px; padding:16px; margin-top:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+.calc { font-size:0.9rem; background:#f1f5f9; padding:14px; border-radius:6px; line-height:1.55; }
 
-.box h4 {
- margin-top:0;
- border-bottom:1px solid #eee;
- padding-bottom:6px;
-}
-
-.calc {
- font-size:0.9rem;
- background:#f1f5f9;
- padding:12px;
- border-radius:6px;
- line-height:1.5;
-}
-
-.disclaimer {
- font-size:0.75rem;
- color:#555;
- margin-top:20px;
- background:#fff3cd;
- padding:10px;
- border-radius:6px;
-}
-
-@media(min-width:768px){
- body { max-width:760px; margin:auto; }
-}
+@media(min-width:768px){ body { max-width:760px; margin:auto; } }
 </style>
 </head>
 
 <body>
 
 <h2>☀️ Simulatore Fotovoltaico</h2>
-<p style="text-align:center"><strong>Demo commerciale – calcoli trasparenti</strong></p>
+<p style="text-align:center"><strong>Calcoli completamente visibili</strong></p>
 
 <!-- STEP 1 -->
 <div class="step active" id="step1">
@@ -91,6 +39,12 @@ input, select {
 
 <label>Superficie tetto disponibile (m²)</label>
 <input type="number" id="roof" value="50">
+
+<label>Consumo annuo stimato (kWh, opzionale)</label>
+<input type="number" id="manualCons" placeholder="Lascia vuoto per calcolo automatico">
+
+<label>Ultima bolletta (€)</label>
+<input type="number" id="lastBill" placeholder="Opzionale, per calcolo risparmio realistico">
 
 <button onclick="goStep(2)">Continua</button>
 </div>
@@ -126,8 +80,9 @@ input, select {
 <div class="step" id="step3">
 
 <div class="box">
-<h4>📊 Impianto consigliato</h4>
+<h4>📊 Risultato impianto</h4>
 <div>Pannelli: <b><span id="panels"></span></b></div>
+<div>Area occupata dai pannelli: <b><span id="areaUsed"></span></b></div>
 <div>Potenza totale: <b><span id="kwp"></span></b></div>
 <div>Produzione annua: <b><span id="prod"></span></b></div>
 <div>Copertura tetto: <b><span id="areaPerc"></span></b></div>
@@ -141,44 +96,42 @@ input, select {
 
 <div class="box">
 <h4>💰 Risparmio</h4>
-<div>Risparmio annuo stimato: <b><span id="saveEuro"></span></b></div>
+<div>Risparmio annuo: <b><span id="saveEuro"></span></b></div>
 <div>Rientro investimento: <b><span id="payback"></span></b></div>
 </div>
 
 <div class="box">
-<h4>📌 Calcoli dettagliati</h4>
+<h4><em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Non costituiscono un’offerta vincolante né una proposta commerciale. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em></h4>
+</div>
+
+
+<div class="box">
+<h4>📌 Calcoli dettagliati (passo-passo)</h4>
 <div class="calc" id="calcBox"></div>
 </div>
 
-<button class="secondary" onclick="window.print()">📄 Scarica preventivo PDF</button>
-<button onclick="goStep(1)">Nuova simulazione</button>
 
-<div class="disclaimer">
-⚠️ <b>Disclaimer</b><br>
-Le stime fornite hanno valore puramente indicativo e non costituiscono offerta commerciale.
-I risultati dipendono da orientamento, ombreggiamenti, abitudini di consumo, tariffe e condizioni di installazione.
-Per un preventivo definitivo è necessario un sopralluogo tecnico.
-</div>
+<button class="secondary" onclick="window.print()">📄 Scarica PDF</button>
+<button onclick="goStep(1)">Nuova simulazione</button>
 
 </div>
 
 <script>
-// ===== PARAMETRI =====
+// PARAMETRI
 const PANEL_AREA = 2;
 const SPECIFIC_YIELD = 1200;
 const ENERGY_COST = 0.30;
 const COST_FV_KWP = 1600;
 const COST_BATT_KWH = 800;
 const SELF_CONSUMPTION = 0.55;
-const MAX_KWP = 10;
 
-// ===== STEP =====
+// STEP
 function goStep(n){
  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
  document.getElementById('step'+n).classList.add('active');
 }
 
-// ===== CONSUMI =====
+// CONSUMI
 function consumoMedio(p){
  if(p<=1) return 1800;
  if(p===2) return 2700;
@@ -187,81 +140,124 @@ function consumoMedio(p){
  return 4500 * (1 + 0.15*(p-4));
 }
 
-// ===== CALCOLO =====
+// CALCOLO
 function calculate(){
  const people = +peopleEl.value;
  const roof = +roofEl.value;
  const panelW = +panelWEl.value;
  const tilt = +tiltEl.value;
  const battSize = +batteryEl.value;
+ const manualCons = +manualConsEl.value;
+ const lastBill = +lastBillEl.value;
 
- const usableRoof = roof * 0.8;
-
- const baseCons = consumoMedio(people);
+ let baseCons = manualCons || consumoMedio(people); // usa manuale se inserito
  const target = baseCons * 1.2;
 
+ const usableRoof = roof * 0.8; // margine semplice 20%
  const tiltFactor = Math.cos((tilt-30)*Math.PI/180);
- const kwhPanel = panelW/1000 * SPECIFIC_YIELD * tiltFactor;
+ const panelKwp = panelW / 1000;
+ const kwhPerPanel = panelKwp * SPECIFIC_YIELD * tiltFactor;
 
- let panels = Math.floor(usableRoof / PANEL_AREA);
- panels = Math.min(panels, Math.ceil(target / kwhPanel));
+ const maxPanelsRoof = Math.floor(usableRoof / PANEL_AREA);
+ const panelsByEnergy = Math.ceil(target / kwhPerPanel);
+ const panels = Math.min(maxPanelsRoof, panelsByEnergy);
 
- let kwp = panels * panelW / 1000;
- if(kwp > MAX_KWP){
-   kwp = MAX_KWP;
-   panels = Math.floor((MAX_KWP*1000)/panelW);
- }
-
+ const kwp = panels * panelKwp;
  const production = kwp * SPECIFIC_YIELD * tiltFactor;
 
- const areaCovered = panels * PANEL_AREA;
- const areaPerc = Math.round(areaCovered / roof * 100);
+ const areaUsed = panels * PANEL_AREA;
+ const areaPerc = Math.round(areaUsed / roof * 100);
 
- const daily = baseCons / 365;
- const night = daily * 0.45;
- const batteryNeeded = night / 0.8;
+ const dailyCons = baseCons / 365;
+ const nightCons = dailyCons * 0.45;
+ const battNeeded = nightCons / 0.8;
 
  let battNum = 1;
- if(batteryNeeded > battSize * 1.2){
-   battNum = Math.ceil(batteryNeeded / battSize);
+ if(battNeeded > battSize * 1.2){
+   battNum = Math.ceil(battNeeded / battSize);
  }
  const battCap = battNum * battSize;
 
- const savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
- const savedEuro = savedKwh * ENERGY_COST;
+ // RISPARMIO
+ let savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
+ let savedEuro;
+ if(lastBill) {
+   const avgCostPerKwh = lastBill / baseCons;
+   savedEuro = savedKwh * avgCostPerKwh;
+ } else {
+   savedEuro = savedKwh * ENERGY_COST;
+ }
  const investment = kwp*COST_FV_KWP + battCap*COST_BATT_KWH;
  const payback = investment / savedEuro;
 
+ // OUTPUT
  panelsEl.innerText = panels;
+ areaUsedEl.innerText = areaUsed+" m²";
  kwpEl.innerText = kwp.toFixed(2)+" kWp";
  prodEl.innerText = Math.round(production)+" kWh";
- areaPercEl.innerText = `${areaCovered} m² su ${roof} m² (${areaPerc}%)`;
-
+ areaPercEl.innerText = areaPerc+"%";
  battNumEl.innerText = battNum;
  battCapEl.innerText = battCap+" kWh";
-
- saveEuroEl.innerText = "€ "+Math.round(savedEuro)+" / anno";
+ saveEuroEl.innerText = "€ "+Math.round(savedEuro);
  paybackEl.innerText = payback.toFixed(1)+" anni";
 
+
+ // CALCOLI DETTAGLIATI
  calcBox.innerHTML = `
-Tetto utilizzabile (80%): <b>${usableRoof.toFixed(1)} m²</b><br>
-Consumo stimato: <b>${Math.round(baseCons)} kWh/anno</b><br>
-Produzione stimata: <b>${Math.round(production)} kWh/anno</b><br>
-Autoconsumo stimato: <b>${Math.round(savedKwh)} kWh</b><br>
-Costo stimato impianto: <b>€ ${Math.round(investment)}</b>
+ 
+<em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Non costituiscono un’offerta vincolante né una proposta commerciale. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em>
+<br><br><br>
+
+<b>1️⃣ Consumi</b><br>
+• Persone: ${people}<br>
+• Consumo base stimato: ${baseCons.toFixed(0)} kWh/anno<br>
+• Margine +20%: ${Math.round(target)} kWh/anno<br><br>
+
+<b>2️⃣ Tetto</b><br>
+• Superficie totale: ${roof} m²<br>
+• Superficie utilizzabile (80%): ${usableRoof.toFixed(1)} m²<br><br>
+
+<b>3️⃣ Pannelli</b><br>
+• Area singolo pannello: ${PANEL_AREA} m²<br>
+• Pannelli max su tetto: ${maxPanelsRoof}<br>
+• Produzione singolo pannello: ${panelW} W × ${SPECIFIC_YIELD} × ${tiltFactor.toFixed(2)} = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
+• Pannelli richiesti dal fabbisogno: ${panelsByEnergy}<br>
+• Pannelli installati: ${panels}<br>
+• Area totale occupata: ${areaUsed} m²<br><br>
+
+<b>4️⃣ Impianto</b><br>
+• Potenza totale: ${kwp.toFixed(2)} kWp<br>
+• Produzione annua totale: ${Math.round(production)} kWh<br><br>
+
+<b>5️⃣ Accumulo</b><br>
+• Consumo giornaliero medio: ${dailyCons.toFixed(2)} kWh<br>
+• Quota notturna (45%): ${nightCons.toFixed(2)} kWh<br>
+• Batteria necessaria: ${battNeeded.toFixed(2)} kWh<br>
+• Batteria scelta: ${battSize} kWh<br>
+• Batterie installate: ${battNum}<br><br>
+
+<b>6️⃣ Risparmio</b><br>
+• Energia autoconsumata: ${Math.round(savedKwh)} kWh<br>
+• Risparmio annuo stimato: € ${Math.round(savedEuro)}<br>
+• Investimento stimato: € ${Math.round(investment)}<br>
+• Rientro: ${payback.toFixed(1)} anni
+
 `;
 
  goStep(3);
 }
 
-// ===== ELEMENTI =====
+// ELEMENTI
 const peopleEl = document.getElementById("people");
 const roofEl = document.getElementById("roof");
+const manualConsEl = document.getElementById("manualCons");
+const lastBillEl = document.getElementById("lastBill");
 const panelWEl = document.getElementById("panelW");
 const tiltEl = document.getElementById("tilt");
 const batteryEl = document.getElementById("battery");
 
 const panelsEl = document.getElementById("panels");
+const areaUsedEl = document.getElementById("areaUsed");
 const kwpEl = document.getElementById("kwp");
 const prodEl = document.getElementById("prod");
 const areaPercEl = document.getElementById("areaPerc");
