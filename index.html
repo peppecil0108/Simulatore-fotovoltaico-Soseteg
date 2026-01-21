@@ -76,9 +76,16 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 
 <label>Batteria singola (kWh)</label>
 <select id="battery">
+<option value="0">Nessuna batteria</option>
 <option value="5">5</option>
 <option value="7">7</option>
 <option value="10">10</option>
+</select>
+<label>Zona geografica</label>
+<select id="zone">
+  <option value="nord">Nord Italia</option>
+  <option value="centro">Centro Italia</option>
+  <option value="sud">Sud Italia</option>
 </select>
 
 <button onclick="calculate()">Calcola simulazione</button>
@@ -143,6 +150,11 @@ const ENERGY_COST = 0.30;
 const COST_FV_KWP = 1600;
 const COST_BATT_KWH = 800;
 const SELF_CONSUMPTION = 0.55;
+const ZONE_YIELD = {
+  nord: 1100,
+  centro: 1250,
+  sud: 1450
+};
 
 // STEP
 function goStep(n){
@@ -175,14 +187,18 @@ function calculate(){
  const usableRoof = roof * 0.8; // margine semplice 20%
  const tiltFactor = Math.cos((tilt-30)*Math.PI/180);
  const panelKwp = panelW / 1000;
- const kwhPerPanel = panelKwp * SPECIFIC_YIELD * tiltFactor;
+ const zone = document.getElementById("zone").value;
+const zoneYield = ZONE_YIELD[zone];
+
+const kwhPerPanel = panelKwp * zoneYield * tiltFactor;
+
 
  const maxPanelsRoof = Math.floor(usableRoof / PANEL_AREA);
  const panelsByEnergy = Math.ceil(target / kwhPerPanel);
  const panels = Math.min(maxPanelsRoof, panelsByEnergy);
 
  const kwp = panels * panelKwp;
- const production = kwp * SPECIFIC_YIELD * tiltFactor;
+ const production = kwp * zoneYield * tiltFactor;
 
  const areaUsed = panels * PANEL_AREA;
  const areaPerc = Math.round(areaUsed / roof * 100);
@@ -191,11 +207,13 @@ function calculate(){
  const nightCons = dailyCons * 0.45;
  const battNeeded = nightCons / 0.8;
 
- let battNum = 1;
- if(battNeeded > battSize * 1.2){
-   battNum = Math.ceil(battNeeded / battSize);
- }
- const battCap = battNum * battSize;
+let battNum = 0;
+let battCap = 0;
+
+if(battSize > 0){
+   battNum = Math.max(1, Math.ceil(battNeeded / battSize));
+   battCap = battNum * battSize;
+}
 
  // RISPARMIO
  let savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
