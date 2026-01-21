@@ -2,29 +2,25 @@
 <html lang="it">
 <head>
 <meta charset="utf-8"/>
-<title>Simulatore Fotovoltaico</title>
+<title>Simulatore Fotovoltaico SOSETEG</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-
 <style>
 body { font-family: Arial, sans-serif; margin:12px; background:#fff; color:#222; }
 h2 { text-align:center; }
 .step { display:none; }
 .step.active { display:block; }
-
-button { padding:12px; width:100%; margin-top:12px; cursor:pointer; background:#2e7d32; color:#fff; border:none; border-radius:6px; font-size:1rem; }
+button { padding:12px; width:100%; margin-top:12px; cursor:pointer; background:#2e7d32; color:#fff; border:none; border-radius:6px; }
 button.secondary { background:#546e7a; }
-
 label { font-weight:600; margin-top:10px; display:block; }
 input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #ccc; }
-
 .box { background:#fff; border-radius:8px; padding:16px; margin-top:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
 .calc { font-size:0.9rem; background:#f1f5f9; padding:14px; border-radius:6px; line-height:1.55; }
-
-@media(min-width:768px){ body { max-width:760px; margin:auto; } }
+#map { height:500px; width:100%; }
+#roofWarningBox { display:none; color:#856404; background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:8px; }
 </style>
 </head>
-
 <body>
+
 <br>
 <a href="https://www.soseteg.it" target="_blank" style="display: block; text-align: center;">
   <img 
@@ -35,291 +31,224 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 </a>
 
 
-<h2>☀️ Simulatore Fotovoltaico SOSETEG SPA </h2>
-<p style="text-align:center"><strong>Calcoli completamente visibili</strong></p>
+<h2>☀️ Simulatore Fotovoltaico SOSETEG </h2>
 
-<!-- STEP 1 -->
+<!-- STEP 1 - INDIRIZZO -->
 <div class="step active" id="step1">
 <div class="box">
-<h4>1️⃣ Abitazione</h4>
-
-<label>Numero persone</label>
-<input type="number" id="people" value="3" min="1">
-
-<label>Superficie tetto disponibile (m²)</label>
-<input type="number" id="roof" value="50">
-
-<label>Consumo annuo stimato (kWh, opzionale)</label>
-<input type="number" id="manualCons" placeholder="Lascia vuoto per calcolo automatico">
-
-<label>Ultima bolletta (€)</label>
-<input type="number" id="lastBill" placeholder="Opzionale, per calcolo risparmio realistico">
-
+<label>Inserisci indirizzo</label>
+<input id="address" placeholder="Via Roma 10, Milano">
 <button onclick="goStep(2)">Continua</button>
 </div>
 </div>
 
-<!-- STEP 2 -->
+<!-- STEP 2 - MAPPA -->
 <div class="step" id="step2">
 <div class="box">
-<h4>2️⃣ Impianto</h4>
+<h4>Disegna il tetto</h4>
+<div id="map"></div>
+<p><b>Area:</b> <span id="roofArea">0</span> m²</p>
+<p><b>Zona:</b> <span id="zoneTxt">Centro</span></p>
+<button onclick="goStep(3)">Continua</button>
+</div>
+</div>
 
-<label>Potenza pannello (W)</label>
-<select id="panelW">
-<option value="400">400</option>
-<option value="450">450</option>
-<option value="500">500</option>
-</select>
+<!-- STEP 3 - DATI CASA -->
+<div class="step" id="step3">
+<div class="box">
+<label>Persone</label>
+<input type="number" id="people" value="3">
+
+<label>Consumo annuo (kWh, opzionale)</label>
+<input type="number" id="manualCons">
+
+<label>Ultima bolletta (€)</label>
+<input type="number" id="lastBill">
+
+<label>Percentuale consumo notturno (%)</label>
+<input type="number" id="nightPerc" value="45" min="0" max="100">
+
+<button onclick="goStep(4)">Continua</button>
+</div>
+</div>
+
+<!-- STEP 4 - IMPIANTO -->
+<div class="step" id="step4">
+<div class="box">
+<label>Pannello (W)</label>
+<select id="panelW"><option>400</option><option>450</option><option>500</option></select>
 
 <label>Inclinazione pannelli (°)</label>
 <input type="number" id="tilt" value="30">
 
-<label>Batteria singola (kWh)</label>
-<select id="battery">
-<option value="0">Nessuna batteria</option>
-<option value="5">5</option>
-<option value="7">7</option>
-<option value="10">10</option>
-</select>
-<label>Zona geografica</label>
-<select id="zone">
-  <option value="nord">Nord Italia</option>
-  <option value="centro">Centro Italia</option>
-  <option value="sud">Sud Italia</option>
-</select>
+<label>Batteria (kWh)</label>
+<select id="battery"><option value="0">No</option><option>5</option><option>7</option><option>10</option></select>
 
-<button onclick="calculate()">Calcola simulazione</button>
+<button onclick="calculate()">Calcola</button>
 </div>
 </div>
 
-<!-- STEP 3 -->
-<div class="step" id="step3">
-
-<div id="roofWarningBox" class="box" style="display:none; background:#fff3cd; color:#856404; border:1px solid #ffeeba;">
-<!-- qui comparirà il messaggio di tetto insufficiente -->
-</div>
-
-
+<!-- STEP 5 - RISULTATI -->
+<div class="step" id="step5">
 <div class="box">
-<h4>📊 Risultato impianto</h4>
-<div>Pannelli: <b><span id="panels"></span></b></div>
-<div>Area occupata dai pannelli: <b><span id="areaUsed"></span></b></div>
-<div>Potenza totale: <b><span id="kwp"></span></b></div>
-<div>Produzione annua: <b><span id="prod"></span></b></div>
-<div>Copertura tetto: <b><span id="areaPerc"></span></b></div>
+<h3>Risultato</h3>
+<div id="roofWarningBox"></div>
+<div>Pannelli: <b id="panels"></b></div>
+<div>Potenza: <b id="kwp"></b></div>
+<div>Produzione: <b id="prod"></b></div>
+<div>Batterie: <b id="batt"></b></div>
+<div>Risparmio: <b id="save"></b></div>
+<div>Area occupata: <b id="areaUsed"></b> m²</div>
 </div>
-
-<div class="box">
-<h4>🔋 Accumulo</h4>
-<div>Batterie: <b><span id="battNum"></span></b></div>
-<div>Capacità totale: <b><span id="battCap"></span></b></div>
-</div>
-
-<div class="box">
-<h4>💰 Risparmio</h4>
-<div>Risparmio annuo: <b><span id="saveEuro"></span></b></div>
-<div>Rientro investimento: <b><span id="payback"></span></b></div>
-</div>
-
-<div class="box">
-<h4><em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Non costituiscono un’offerta vincolante né una proposta commerciale. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em></h4>
-</div>
-
-
 
 <div class="box">
 <h4>📌 Calcoli dettagliati (passo-passo)</h4>
 <div class="calc" id="calcBox"></div>
 </div>
 
-
 <button class="secondary" onclick="window.print()">📄 Scarica PDF</button>
 <button onclick="goStep(1)">Nuova simulazione</button>
-
 </div>
 
 <script>
+let roof=0, zone="centro";
+const ZONE_YIELD={nord:1100, centro:1250, sud:1450};
+const PANEL_AREA=2; // m² per pannello
+const BATTERY_OPTIONS = [0,5,7,10];
 
-
-
-
-// PARAMETRI
-const PANEL_AREA = 2;
-const SPECIFIC_YIELD = 1200;
-const ENERGY_COST = 0.30;
-const COST_FV_KWP = 1600;
-const COST_BATT_KWH = 800;
-const SELF_CONSUMPTION = 0.55;
-const ZONE_YIELD = {
-  nord: 1100,
-  centro: 1250,
-  sud: 1450
-};
-
-// STEP
 function goStep(n){
  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
- document.getElementById('step'+n).classList.add('active');
+ document.getElementById("step"+n).classList.add("active");
+}
+
+// MAPPA
+function initMap(){
+ const map=new google.maps.Map(document.getElementById("map"),{zoom:18,center:{lat:41.9,lng:12.49}});
+ const ac=new google.maps.places.Autocomplete(document.getElementById("address"));
+ ac.addListener("place_changed",()=>{
+   const p=ac.getPlace();
+   if(!p.geometry) return;
+   const lat=p.geometry.location.lat();
+   zone=lat>45?"nord":lat>42?"centro":"sud";
+   document.getElementById("zoneTxt").innerText=zone;
+   map.setCenter(p.geometry.location);
+ });
+ const dm=new google.maps.drawing.DrawingManager({drawingMode:google.maps.drawing.OverlayType.POLYGON});
+ dm.setMap(map);
+ google.maps.event.addListener(dm,"polygoncomplete",poly=>{
+   roof=google.maps.geometry.spherical.computeArea(poly.getPath());
+   document.getElementById("roofArea").innerText=roof.toFixed(1);
+ });
 }
 
 // CONSUMI
 function consumoMedio(p){
  if(p<=1) return 1800;
- if(p===2) return 2700;
- if(p===3) return 3600;
- if(p===4) return 4500;
- return 4500 * (1 + 0.15*(p-4));
+ if(p==2) return 2700;
+ if(p==3) return 3600;
+ if(p==4) return 4500;
+ return 4500*(1+0.15*(p-4));
 }
 
 // CALCOLO
 function calculate(){
- const people = +peopleEl.value;
- const roof = +roofEl.value;
- const panelW = +panelWEl.value;
- const tilt = +tiltEl.value;
- const battSize = +batteryEl.value;
- const manualCons = +manualConsEl.value;
- const lastBill = +lastBillEl.value;
+ const people = +document.getElementById("people").value;
+ const manualCons = +document.getElementById("manualCons").value;
+ const lastBill = +document.getElementById("lastBill").value;
+ const nightPerc = +document.getElementById("nightPerc").value/100;
+ const panelW = +document.getElementById("panelW").value;
+ const tilt = +document.getElementById("tilt").value;
+ const battSize = +document.getElementById("battery").value;
 
- let baseCons = manualCons || consumoMedio(people); // usa manuale se inserito
- const target = baseCons * 1.2;
+ const baseCons = manualCons || consumoMedio(people);
+ const target = baseCons*1.2;
 
- const usableRoof = roof * 0.8; // margine semplice 20%
+ const panelKwp = panelW/1000;
  const tiltFactor = Math.cos((tilt-30)*Math.PI/180);
- const panelKwp = panelW / 1000;
- const zone = document.getElementById("zone").value;
-const zoneYield = ZONE_YIELD[zone];
+ const yieldPerKwp = ZONE_YIELD[zone]*tiltFactor;
 
-const kwhPerPanel = panelKwp * zoneYield * tiltFactor;
-
-
- const maxPanelsRoof = Math.floor(usableRoof / PANEL_AREA);
- const panelsByEnergy = Math.ceil(target / kwhPerPanel);
+ const kwhPerPanel = panelKwp*yieldPerKwp;
+ const maxPanelsRoof = Math.floor(roof/PANEL_AREA);
+ const panelsByEnergy = Math.ceil(target/kwhPerPanel);
  const panels = Math.min(maxPanelsRoof, panelsByEnergy);
 
- const kwp = panels * panelKwp;
- const production = kwp * zoneYield * tiltFactor;
+ const kwp = panels*panelKwp;
+ const production = kwp*yieldPerKwp;
+ const areaUsed = panels*PANEL_AREA;
 
- const areaUsed = panels * PANEL_AREA;
- const areaPerc = Math.round(areaUsed / roof * 100);
+ // Autoconsumo
+ const dayPerc = 1-nightPerc;
+ const savedKwh = Math.min(baseCons, production*dayPerc);
 
- const dailyCons = baseCons / 365;
- const nightCons = dailyCons * 0.45;
- const battNeeded = nightCons / 0.8;
+ // Batteria necessaria per notte (+20% sicurezza)
+ const dailyCons = baseCons/365;
+ const nightCons = dailyCons*nightPerc;
+ let battNeeded = nightCons/0.8; // 80% utilizzabile
+ let battNum=0;
+ let battCap=0;
 
-let battNum = 0;
-let battCap = 0;
-
-if(battSize > 0){
-   battNum = Math.max(1, Math.ceil(battNeeded / battSize));
-   battCap = battNum * battSize;
-}
-
- // RISPARMIO
- let savedKwh = Math.min(baseCons, production * SELF_CONSUMPTION);
- let savedEuro;
- if(lastBill) {
-   const avgCostPerKwh = lastBill / baseCons;
-   savedEuro = savedKwh * avgCostPerKwh;
+ if(battSize>0){
+   battNum=Math.ceil(battNeeded/battSize);
+   battCap=battNum*battSize;
  } else {
-   savedEuro = savedKwh * ENERGY_COST;
+   let suggested = BATTERY_OPTIONS.find(b=>b>=battNeeded) || 10;
+   battNum=Math.ceil(battNeeded/suggested);
+   battCap=battNum*suggested;
  }
- const investment = kwp*COST_FV_KWP + battCap*COST_BATT_KWH;
- const payback = investment / savedEuro;
 
-let roofWarning = "";
-if (panels < panelsByEnergy) {
-    const areaNeeded = panelsByEnergy * PANEL_AREA;
-    roofWarningBox.style.display = "block";
-    roofWarningBox.innerHTML = `
-⚠️ Attenzione: la superficie tetto disponibile non è sufficiente a coprire i consumi stimati. 
-Il simulatore installa solo ${panels} pannelli (${areaUsed} m²), mentre ne servirebbero ${panelsByEnergy} pannelli (${areaNeeded} m²) per coprire interamente il fabbisogno stimato.`;
-} else {
-    roofWarningBox.style.display = "none";
-}
+ const euro = lastBill ? savedKwh*(lastBill/baseCons) : savedKwh*0.30;
+ const invest = kwp*1600 + battCap*800;
 
+ // Tetto insufficiente
+ const roofWarning = panels<panelsByEnergy? 
+   `⚠️ Tetto insufficiente: servirebbero ${panelsByEnergy} pannelli (${panelsByEnergy*PANEL_AREA} m²), ma il tetto ne permette solo ${panels} (${areaUsed} m²).` : "";
 
+ document.getElementById("roofWarningBox").innerText = roofWarning;
+ document.getElementById("panels").innerText = panels;
+ document.getElementById("kwp").innerText = kwp.toFixed(2)+" kWp";
+ document.getElementById("prod").innerText = Math.round(production)+" kWh";
+ document.getElementById("batt").innerText = battCap+" kWh";
+ document.getElementById("save").innerText = "€ "+Math.round(euro);
+ document.getElementById("areaUsed").innerText = areaUsed;
 
- // OUTPUT
- panelsEl.innerText = panels;
- areaUsedEl.innerText = areaUsed+" m²";
- kwpEl.innerText = kwp.toFixed(2)+" kWp";
- prodEl.innerText = Math.round(production)+" kWh";
- areaPercEl.innerText = areaPerc+"%";
- battNumEl.innerText = battNum;
- battCapEl.innerText = battCap+" kWh";
- saveEuroEl.innerText = "€ "+Math.round(savedEuro);
- paybackEl.innerText = payback.toFixed(1)+" anni";
-
-
- // CALCOLI DETTAGLIATI
- calcBox.innerHTML = `
- 
-<em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Non costituiscono un’offerta vincolante né una proposta commerciale. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em>
-<br><br>
-
+ // Calcoli dettagliati
+ document.getElementById("calcBox").innerHTML = `
+<em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em><br><br>
 ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
-
 <b>1️⃣ Consumi</b><br>
 • Persone: ${people}<br>
 • Consumo base stimato: ${baseCons.toFixed(0)} kWh/anno<br>
 • Margine +20%: ${Math.round(target)} kWh/anno<br><br>
-
 <b>2️⃣ Tetto</b><br>
-• Superficie totale: ${roof} m²<br>
-• Superficie utilizzabile (80%): ${usableRoof.toFixed(1)} m²<br><br>
-
+• Superficie totale: ${roof.toFixed(1)} m²<br>
+• Superficie utilizzabile (80%): ${(roof*0.8).toFixed(1)} m²<br><br>
 <b>3️⃣ Pannelli</b><br>
 • Area singolo pannello: ${PANEL_AREA} m²<br>
 • Pannelli max su tetto: ${maxPanelsRoof}<br>
-• Produzione singolo pannello: ${panelW} W × ${SPECIFIC_YIELD} × ${tiltFactor.toFixed(2)} = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
+• Produzione singolo pannello: ${panelW} W × 1200 × ${tiltFactor.toFixed(2)} = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
 • Pannelli richiesti dal fabbisogno: ${panelsByEnergy}<br>
 • Pannelli installati: ${panels}<br>
 • Area totale occupata: ${areaUsed} m²<br><br>
-
 <b>4️⃣ Impianto</b><br>
 • Potenza totale: ${kwp.toFixed(2)} kWp<br>
 • Produzione annua totale: ${Math.round(production)} kWh<br><br>
-
 <b>5️⃣ Accumulo</b><br>
 • Consumo giornaliero medio: ${dailyCons.toFixed(2)} kWh<br>
-• Quota notturna (45%): ${nightCons.toFixed(2)} kWh<br>
-• Batteria necessaria: ${battNeeded.toFixed(2)} kWh<br>
-• Batteria scelta: ${battSize} kWh<br>
-• Batterie installate: ${battNum}<br><br>
-
+• Quota notturna (${(nightPerc*100).toFixed(0)}%): ${nightCons.toFixed(2)} kWh<br>
+• Batteria necessaria (+20% sicurezza): ${battNeeded.toFixed(2)} kWh<br>
+• Batteria scelta: ${battSize} kWh ${battSize===0 ? `(consigliata: ${battCap} kWh = ${battNum} unità)` : ""}<br>
+• Batterie installate: ${battSize>0? battNum : 0}<br><br>
 <b>6️⃣ Risparmio</b><br>
 • Energia autoconsumata: ${Math.round(savedKwh)} kWh<br>
-• Risparmio annuo stimato: € ${Math.round(savedEuro)}<br>
-• Investimento stimato: € ${Math.round(investment)}<br>
-• Rientro: ${payback.toFixed(1)} anni
-
+• Risparmio annuo stimato: € ${Math.round(euro)}<br>
+• Investimento stimato: € ${Math.round(invest)}<br>
 `;
 
- goStep(3);
+ goStep(5);
 }
-
-// ELEMENTI
-const peopleEl = document.getElementById("people");
-const roofEl = document.getElementById("roof");
-const manualConsEl = document.getElementById("manualCons");
-const lastBillEl = document.getElementById("lastBill");
-const panelWEl = document.getElementById("panelW");
-const tiltEl = document.getElementById("tilt");
-const batteryEl = document.getElementById("battery");
-const roofWarningBox = document.getElementById("roofWarningBox");
-
-const panelsEl = document.getElementById("panels");
-const areaUsedEl = document.getElementById("areaUsed");
-const kwpEl = document.getElementById("kwp");
-const prodEl = document.getElementById("prod");
-const areaPercEl = document.getElementById("areaPerc");
-const battNumEl = document.getElementById("battNum");
-const battCapEl = document.getElementById("battCap");
-const saveEuroEl = document.getElementById("saveEuro");
-const paybackEl = document.getElementById("payback");
-const calcBox = document.getElementById("calcBox");
 </script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
 
 </body>
 </html>
