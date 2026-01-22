@@ -5,7 +5,7 @@
 <title>Simulatore Fotovoltaico SOSETEG</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-body { font-family: Arial, sans-serif; margin:12px; background:#f9f9f9; color:#222; }
+body { font-family: Arial, sans-serif; margin:12px; background:#fff; color:#222; }
 h2 { text-align:center; color:#2e7d32; }
 .step { display:none; }
 .step.active { display:block; }
@@ -30,7 +30,7 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
   >
 </a>
 
-<h2>☀️ Simulatore Fotovoltaico Soseteg SpA</h2>
+<h2>☀️ Simulatore Fotovoltaico SOSETEG SPA</h2>
 
 <!-- STEP 1 - INDIRIZZO -->
 <div class="step active" id="step1">
@@ -70,6 +70,8 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 <label>Ultima bolletta (€)</label>
 <input type="number" id="lastBill">
 
+<p style="font-size:0.9rem; color:#555;">Consumo notturno stimato al 30%, inclinazione pannelli fissa 30° (ottimale).</p>
+
 <button onclick="goStep(4)">Continua</button>
 </div>
 </div>
@@ -82,8 +84,6 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 
 <label>Batteria (kWh)</label>
 <select id="battery"><option value="0">No</option><option>5</option><option>7</option><option>10</option></select>
-
-<p style="font-size:0.9rem; color:#555;">Inclinazione pannelli fissa a 30°, consumo notturno 30% (default realistico)</p>
 
 <button onclick="calculate()">Calcola</button>
 </div>
@@ -115,10 +115,10 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 <script>
 let roof=0, zone="centro";
 const ZONE_YIELD={nord:1100, centro:1250, sud:1450};
-const PANEL_AREA=2; // m² per pannello
+const PANEL_AREA=2; 
 const BATTERY_OPTIONS = [0,5,7,10];
-const NIGHT_PERCENT = 0.3; // fisso 30%
-const PANEL_TILT = 30; // fisso 30°
+const NIGHT_PERCENT = 0.3; 
+const PANEL_TILT = 30; 
 
 function goStep(n){
  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
@@ -128,7 +128,6 @@ function goStep(n){
 let map, drawingManager, roofPolygon = null;
 
 function initMap(){
-
   map = new google.maps.Map(document.getElementById("map"),{
     zoom:18,
     center:{lat:41.9,lng:12.49},
@@ -162,20 +161,19 @@ function initMap(){
 
   drawingManager.setMap(map);
 
-google.maps.event.addListener(drawingManager, "polygoncomplete", poly => {
-  if (roofPolygon) roofPolygon.setMap(null);
-  roofPolygon = poly;
-  drawingManager.setDrawingMode(null);
-  poly.setEditable(true);
-  updateRoofArea();
-  poly.getPath().addListener("set_at", updateRoofArea);
-  poly.getPath().addListener("insert_at", updateRoofArea);
-  poly.getPath().addListener("remove_at", updateRoofArea);
-});
-
+  google.maps.event.addListener(drawingManager, "polygoncomplete", poly => {
+    if (roofPolygon) roofPolygon.setMap(null);
+    roofPolygon = poly;
+    drawingManager.setDrawingMode(null);
+    poly.setEditable(true);
+    updateRoofArea();
+    poly.getPath().addListener("set_at", updateRoofArea);
+    poly.getPath().addListener("insert_at", updateRoofArea);
+    poly.getPath().addListener("remove_at", updateRoofArea);
+  });
 }
 
-// CONSUMI
+// Consumo medio in base a numero persone
 function consumoMedio(p){
  if(p<=1) return 1800;
  if(p==2) return 2700;
@@ -184,7 +182,34 @@ function consumoMedio(p){
  return 4500*(1+0.15*(p-4));
 }
 
-// CALCOLO
+// Calcolo azimut medio del tetto (in gradi)
+function calcAzimuth(polygon){
+  if(!polygon) return 180; // default Sud
+  const path = polygon.getPath();
+  let azTotal=0;
+  let n=0;
+  for(let i=0;i<path.getLength();i++){
+    let p1 = path.getAt(i);
+    let p2 = path.getAt((i+1)%path.getLength());
+    let dx = p2.lng() - p1.lng();
+    let dy = p2.lat() - p1.lat();
+    let az = Math.atan2(dx, dy)*180/Math.PI;
+    if(az<0) az+=360;
+    azTotal+=az;
+    n++;
+  }
+  return azTotal/n;
+}
+
+// Fattore riduzione produzione in base ad azimut
+function azimuthFactor(az){
+  // Sud = 180°, max 1, decrescita verso Est/Ovest
+  let diff = Math.abs(az-180);
+  if(diff>180) diff=360-diff;
+  return Math.max(0.5, 1 - diff/180); // 0.5 = minimo 50% se Nord
+}
+
+// Calcolo principale
 function calculate(){
  const people = +document.getElementById("people").value;
  const manualCons = +document.getElementById("manualCons").value;
@@ -194,11 +219,13 @@ function calculate(){
 
  const baseCons = manualCons || consumoMedio(people);
  const target = baseCons*1.2;
-
  const panelKwp = panelW/1000;
- const tiltFactor = Math.cos((PANEL_TILT-30)*Math.PI/180);
- const yieldPerKwp = ZONE_YIELD[zone]*tiltFactor;
 
+ const tiltFactor = Math.cos((PANEL_TILT-30)*Math.PI/180);
+ const az = calcAzimuth(roofPolygon);
+ const azFactor = azimuthFactor(az);
+
+ const yieldPerKwp = ZONE_YIELD[zone]*tiltFactor*azFactor;
  const kwhPerPanel = panelKwp*yieldPerKwp;
  const maxPanelsRoof = Math.floor(roof/PANEL_AREA);
  const panelsByEnergy = Math.ceil(target/kwhPerPanel);
@@ -208,14 +235,12 @@ function calculate(){
  const production = kwp*yieldPerKwp;
  const areaUsed = panels*PANEL_AREA;
 
- // Autoconsumo
  const dayPerc = 1-NIGHT_PERCENT;
  const savedKwh = Math.min(baseCons, production*dayPerc);
 
- // Batteria necessaria per notte (+20% sicurezza)
  const dailyCons = baseCons/365;
  const nightCons = dailyCons*NIGHT_PERCENT;
- let battNeeded = nightCons/0.8; // 80% utilizzabile
+ let battNeeded = nightCons/0.8;
  let battNum=0;
  let battCap=0;
 
@@ -232,9 +257,8 @@ function calculate(){
 if (battSize == 0 && battNeeded > 1) {
   battAlertBox.style.display = "block";
   battAlertBox.innerHTML = `⚠️ <b>Batteria consigliata</b><br>
-  Il tuo consumo notturno stimato è di <b>${nightCons.toFixed(1)} kWh</b> a notte.<br>
-  Senza batteria perderesti gran parte dell’energia solare prodotta di giorno.<br>
-  Per coprire la notte servirebbero circa <b>${battCap} kWh</b> di accumulo.`;
+  Consumo notturno stimato: <b>${nightCons.toFixed(1)} kWh</b>.<br>
+  Servirebbero circa <b>${battCap} kWh</b> di accumulo per coprire la notte.`;
 } else {
   battAlertBox.style.display = "none";
 }
@@ -252,9 +276,8 @@ if (battSize == 0 && battNeeded > 1) {
  document.getElementById("save").innerText = "€ "+Math.round(euro);
  document.getElementById("areaUsed").innerText = areaUsed;
 
- // Calcoli dettagliati
  document.getElementById("calcBox").innerHTML = `
-<em>⚠️ Risultati indicativi. Consultare un tecnico qualificato per preventivi reali.</em><br><br>
+<em>⚠️ Risultati indicativi. Consultare sempre un tecnico Soseteg per preventivi reali.</em><br><br>
 ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 <b>1️⃣ Consumi</b><br>
 • Persone: ${people}<br>
@@ -262,12 +285,14 @@ ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 • Margine +20%: ${Math.round(target)} kWh/anno<br><br>
 <b>2️⃣ Tetto</b><br>
 • Superficie totale: ${roof.toFixed(1)} m²<br>
-• Superficie utilizzabile (80%): ${(roof*0.8).toFixed(1)} m²<br><br>
+• Superficie utilizzabile (80%): ${(roof*0.8).toFixed(1)} m²<br>
+• Azimut medio tetto: ${az.toFixed(0)}°<br>
+• Fattore azimut: ${azFactor.toFixed(2)}<br><br>
 <b>3️⃣ Pannelli</b><br>
 • Area singolo pannello: ${PANEL_AREA} m²<br>
 • Pannelli max su tetto: ${maxPanelsRoof}<br>
-• Produzione singolo pannello: ${panelW} W × 1200 × 1.0 = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
-• Pannelli richiesti dal fabbisogno: ${panelsByEnergy}<br>
+• Produzione singolo pannello: ${panelW} W × yieldPerKwp = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
+• Pannelli richiesti: ${panelsByEnergy}<br>
 • Pannelli installati: ${panels}<br>
 • Area totale occupata: ${areaUsed} m²<br><br>
 <b>4️⃣ Impianto</b><br>
@@ -290,9 +315,7 @@ ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 function updateRoofArea(){
   if(!roofPolygon) return;
   roof = google.maps.geometry.spherical.computeArea(roofPolygon.getPath());
-  if (roof > 0) {
-    document.getElementById("roofArea").innerText = roof.toFixed(1);
-  }
+  if (roof > 0) { document.getElementById("roofArea").innerText = roof.toFixed(1); }
 }
 
 function confirmRoof(){
