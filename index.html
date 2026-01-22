@@ -36,7 +36,7 @@ input, select, textarea {
 </a>
 
 
-<h2>☀️ Simulatore Fotovoltaico SOSETEG SPA</h2>
+<h2>☀️ Simulatore Fotovoltaico SOSETEG</h2>
 
 <!-- STEP 1 - INDIRIZZO -->
 <div class="step active" id="step1">
@@ -52,6 +52,7 @@ input, select, textarea {
 <div class="box">
 <h4>Disegna il tetto</h4>
 <div id="map"></div>
+<button class="secondary" onclick="resetRoof()">♻️ Cancella tetto</button>
 <p><b>Area:</b> <span id="roofArea">0</span> m²</p>
 <p><b>Zona:</b> <span id="zoneTxt">Centro</span></p>
 <button onclick="goStep(3)">Continua</button>
@@ -127,25 +128,60 @@ function goStep(n){
  document.getElementById("step"+n).classList.add("active");
 }
 
-// MAPPA
+let map, drawingManager, roofPolygon = null;
+
 function initMap(){
- const map=new google.maps.Map(document.getElementById("map"),{zoom:18,center:{lat:41.9,lng:12.49}});
- const ac=new google.maps.places.Autocomplete(document.getElementById("address"));
- ac.addListener("place_changed",()=>{
-   const p=ac.getPlace();
-   if(!p.geometry) return;
-   const lat=p.geometry.location.lat();
-   zone=lat>45?"nord":lat>42?"centro":"sud";
-   document.getElementById("zoneTxt").innerText=zone;
-   map.setCenter(p.geometry.location);
- });
- const dm=new google.maps.drawing.DrawingManager({drawingMode:google.maps.drawing.OverlayType.POLYGON});
- dm.setMap(map);
- google.maps.event.addListener(dm,"polygoncomplete",poly=>{
-   roof=google.maps.geometry.spherical.computeArea(poly.getPath());
-   document.getElementById("roofArea").innerText=roof.toFixed(1);
- });
+
+  map = new google.maps.Map(document.getElementById("map"),{
+    zoom:18,
+    center:{lat:41.9,lng:12.49},
+    mapTypeId:"satellite",
+    tilt:0
+  });
+
+  const ac=new google.maps.places.Autocomplete(document.getElementById("address"));
+  ac.addListener("place_changed",()=>{
+    const p=ac.getPlace();
+    if(!p.geometry) return;
+    const lat=p.geometry.location.lat();
+    zone=lat>45?"nord":lat>42?"centro":"sud";
+    document.getElementById("zoneTxt").innerText=zone;
+    map.setCenter(p.geometry.location);
+    map.setZoom(20);
+  });
+
+  drawingManager = new google.maps.drawing.DrawingManager({
+    drawingMode: google.maps.drawing.OverlayType.POLYGON,
+    drawingControl: false,
+    polygonOptions:{
+      fillColor:"#00c853",
+      fillOpacity:0.35,
+      strokeColor:"#2e7d32",
+      strokeWeight:2,
+      editable:true,
+      draggable:false
+    }
+  });
+
+  drawingManager.setMap(map);
+
+  google.maps.event.addListener(drawingManager,"polygoncomplete",poly=>{
+
+    // cancella eventuale tetto precedente
+    if(roofPolygon) roofPolygon.setMap(null);
+
+    roofPolygon = poly;
+    drawingManager.setDrawingMode(null); // blocca ulteriori disegni
+
+    calculateRoof();
+
+    // ricalcola se l'utente modifica il poligono
+    poly.getPath().addListener("set_at", calculateRoof);
+    poly.getPath().addListener("insert_at", calculateRoof);
+    poly.getPath().addListener("remove_at", calculateRoof);
+  });
 }
+
 
 // CONSUMI
 function consumoMedio(p){
@@ -230,6 +266,23 @@ if (battSize == 0 && battNeeded > 1) {
  document.getElementById("batt").innerText = battCap+" kWh";
  document.getElementById("save").innerText = "€ "+Math.round(euro);
  document.getElementById("areaUsed").innerText = areaUsed;
+
+  function calculateRoof(){
+  if(!roofPolygon) return;
+  roof = google.maps.geometry.spherical.computeArea(roofPolygon.getPath());
+  document.getElementById("roofArea").innerText = roof.toFixed(1);
+}
+
+  function resetRoof(){
+  if(roofPolygon){
+    roofPolygon.setMap(null);
+    roofPolygon = null;
+  }
+  roof = 0;
+  document.getElementById("roofArea").innerText = "0";
+  drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+}
+
 
  // Calcoli dettagliati
  document.getElementById("calcBox").innerHTML = `
