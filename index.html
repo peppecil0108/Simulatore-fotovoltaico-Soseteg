@@ -36,7 +36,7 @@ input, select, textarea {
 </a>
 
 
-<h2>☀️ Simulatore Fotovoltaico SOSETEG </h2>
+<h2>☀️ Simulatore Fotovoltaico SOSETEG SPA</h2>
 
 <!-- STEP 1 - INDIRIZZO -->
 <div class="step active" id="step1">
@@ -104,6 +104,7 @@ input, select, textarea {
 <div>Batterie: <b id="batt"></b></div>
 <div>Risparmio: <b id="save"></b></div>
 <div>Area occupata: <b id="areaUsed"></b> m²</div>
+<div id="batteryAlert" style="display:none; background:#f8d7da; color:#721c24; padding:12px; border-radius:6px; margin-top:10px; font-weight:600;"></div>
 </div>
 
 <div class="box">
@@ -200,6 +201,20 @@ function calculate(){
    battNum=Math.ceil(battNeeded/suggested);
    battCap=battNum*suggested;
  }
+
+  // Alert batteria consigliata
+const battAlertBox = document.getElementById("batteryAlert");
+
+if (battSize == 0 && battNeeded > 1) {
+  battAlertBox.style.display = "block";
+  battAlertBox.innerHTML = `⚠️ <b>Batteria consigliata</b><br>
+  Il tuo consumo notturno è di <b>${nightCons.toFixed(1)} kWh</b> a notte.<br>
+  Senza batteria perderesti gran parte dell’energia solare prodotta di giorno.<br>
+  Per coprire la notte servirebbero circa <b>${battCap} kWh</b> di accumulo.`;
+} else {
+  battAlertBox.style.display = "none";
+}
+
 
  const euro = lastBill ? savedKwh*(lastBill/baseCons) : savedKwh*0.30;
  const invest = kwp*1600 + battCap*800;
