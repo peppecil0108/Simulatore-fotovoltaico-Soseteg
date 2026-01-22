@@ -36,7 +36,7 @@ input, select, textarea {
 </a>
 
 
-<h2>☀️ Simulatore Fotovoltaico SOSETEG SPA</h2>
+<h2>☀️ Simulatore Fotovoltaico Soseteg SpA</h2>
 
 <!-- STEP 1 - INDIRIZZO -->
 <div class="step active" id="step1">
@@ -114,7 +114,7 @@ input, select, textarea {
 <div class="calc" id="calcBox"></div>
 </div>
 
-<button class="secondary" onclick="window.print()">📄 Scarica PDF</button>
+<button class="secondary" onclick="downloadPDF()">📄 Scarica PDF</button>
 <button onclick="goStep(1)">Nuova simulazione</button>
 </div>
 
@@ -357,9 +357,24 @@ function confirmRoof(){
   goStep(3);
 }
 
+function downloadPDF(){
+  const element = document.getElementById("step5");
+
+  const opt = {
+    margin:       0.5,
+    filename:     'Simulazione_Fotovoltaico_SOSETEG.pdf',
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true },
+    jsPDF:        { unit: 'cm', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(element).save();
+}
+
 </script>
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 </body>
 </html>
