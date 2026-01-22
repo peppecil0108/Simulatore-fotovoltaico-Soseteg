@@ -5,22 +5,17 @@
 <title>Simulatore Fotovoltaico SOSETEG</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-body { font-family: Arial, sans-serif; margin:12px; background:#fff; color:#222; }
-h2 { text-align:center; }
+body { font-family: Arial, sans-serif; margin:12px; background:#f9f9f9; color:#222; }
+h2 { text-align:center; color:#2e7d32; }
 .step { display:none; }
 .step.active { display:block; }
-button { padding:12px; width:100%; margin-top:12px; cursor:pointer; background:#2e7d32; color:#fff; border:none; border-radius:6px; }
+button { padding:12px; width:100%; margin-top:12px; cursor:pointer; background:#2e7d32; color:#fff; border:none; border-radius:6px; font-size:16px; }
 button.secondary { background:#546e7a; }
-label { font-weight:600; margin-top:10px; display:block; }
-  
-input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #ccc; }
-input, select, textarea {
-  font-size:16px;
-}
-  
-.box { background:#fff; border-radius:8px; padding:16px; margin-top:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+label { font-weight:600; margin-top:10px; display:block; font-size:16px; }
+input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #ccc; font-size:16px; }
+.box { background:#fff; border-radius:8px; padding:16px; margin-top:14px; box-shadow:0 2px 12px rgba(0,0,0,.1); }
 .calc { font-size:0.9rem; background:#f1f5f9; padding:14px; border-radius:6px; line-height:1.55; }
-#map { height:500px; width:100%; }
+#map { height:500px; width:100%; border-radius:8px; margin-top:8px; }
 #roofWarningBox { display:none; color:#856404; background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:8px; }
 </style>
 </head>
@@ -34,7 +29,6 @@ input, select, textarea {
     style="width:130px; height:auto;"
   >
 </a>
-
 
 <h2>☀️ Simulatore Fotovoltaico Soseteg SpA</h2>
 
@@ -51,9 +45,13 @@ input, select, textarea {
 <div class="step" id="step2">
 <div class="box">
 <h4>Disegna il tetto</h4>
+<p>🖊️ Clicca sulla mappa per tracciare i vertici del tetto. Chiudi il poligono cliccando sul primo vertice.</p>
 <div id="map"></div>
-<button class="secondary" onclick="resetRoof()">♻️ Cancella tetto</button>
-<button class="secondary" onclick="confirmRoof()">✔️ Conferma tetto</button>
+<div style="margin-top:8px;">
+    <button class="secondary" onclick="drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON)">✏️ Disegna nuovo tetto</button>
+    <button class="secondary" onclick="resetRoof()">♻️ Cancella tetto</button>
+    <button class="secondary" onclick="confirmRoof()">✔️ Conferma tetto</button>
+</div>
 <p><b>Area:</b> <span id="roofArea">0</span> m²</p>
 <p><b>Zona:</b> <span id="zoneTxt">Centro</span></p>
 <button onclick="safeContinue()">Continua</button>
@@ -72,9 +70,6 @@ input, select, textarea {
 <label>Ultima bolletta (€)</label>
 <input type="number" id="lastBill">
 
-<label>Percentuale consumo notturno (%)</label>
-<input type="number" id="nightPerc" value="45" min="0" max="100">
-
 <button onclick="goStep(4)">Continua</button>
 </div>
 </div>
@@ -85,11 +80,10 @@ input, select, textarea {
 <label>Pannello (W)</label>
 <select id="panelW"><option>400</option><option>450</option><option>500</option></select>
 
-<label>Inclinazione pannelli (°)</label>
-<input type="number" id="tilt" value="30">
-
 <label>Batteria (kWh)</label>
 <select id="battery"><option value="0">No</option><option>5</option><option>7</option><option>10</option></select>
+
+<p style="font-size:0.9rem; color:#555;">Inclinazione pannelli fissa a 30°, consumo notturno 30% (default realistico)</p>
 
 <button onclick="calculate()">Calcola</button>
 </div>
@@ -123,6 +117,8 @@ let roof=0, zone="centro";
 const ZONE_YIELD={nord:1100, centro:1250, sud:1450};
 const PANEL_AREA=2; // m² per pannello
 const BATTERY_OPTIONS = [0,5,7,10];
+const NIGHT_PERCENT = 0.3; // fisso 30%
+const PANEL_TILT = 30; // fisso 30°
 
 function goStep(n){
  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
@@ -167,25 +163,17 @@ function initMap(){
   drawingManager.setMap(map);
 
 google.maps.event.addListener(drawingManager, "polygoncomplete", poly => {
-
-  // cancella eventuale tetto precedente
   if (roofPolygon) roofPolygon.setMap(null);
-
   roofPolygon = poly;
   drawingManager.setDrawingMode(null);
   poly.setEditable(true);
-
-  // calcolo immediato
   updateRoofArea();
-
-  // ricalcolo live se sposti i vertici
   poly.getPath().addListener("set_at", updateRoofArea);
   poly.getPath().addListener("insert_at", updateRoofArea);
   poly.getPath().addListener("remove_at", updateRoofArea);
 });
 
 }
-
 
 // CONSUMI
 function consumoMedio(p){
@@ -201,16 +189,14 @@ function calculate(){
  const people = +document.getElementById("people").value;
  const manualCons = +document.getElementById("manualCons").value;
  const lastBill = +document.getElementById("lastBill").value;
- const nightPerc = +document.getElementById("nightPerc").value/100;
  const panelW = +document.getElementById("panelW").value;
- const tilt = +document.getElementById("tilt").value;
  const battSize = +document.getElementById("battery").value;
 
  const baseCons = manualCons || consumoMedio(people);
  const target = baseCons*1.2;
 
  const panelKwp = panelW/1000;
- const tiltFactor = Math.cos((tilt-30)*Math.PI/180);
+ const tiltFactor = Math.cos((PANEL_TILT-30)*Math.PI/180);
  const yieldPerKwp = ZONE_YIELD[zone]*tiltFactor;
 
  const kwhPerPanel = panelKwp*yieldPerKwp;
@@ -223,12 +209,12 @@ function calculate(){
  const areaUsed = panels*PANEL_AREA;
 
  // Autoconsumo
- const dayPerc = 1-nightPerc;
+ const dayPerc = 1-NIGHT_PERCENT;
  const savedKwh = Math.min(baseCons, production*dayPerc);
 
  // Batteria necessaria per notte (+20% sicurezza)
  const dailyCons = baseCons/365;
- const nightCons = dailyCons*nightPerc;
+ const nightCons = dailyCons*NIGHT_PERCENT;
  let battNeeded = nightCons/0.8; // 80% utilizzabile
  let battNum=0;
  let battCap=0;
@@ -242,24 +228,19 @@ function calculate(){
    battCap=battNum*suggested;
  }
 
-  // Alert batteria consigliata
-const battAlertBox = document.getElementById("batteryAlert");
-
+ const battAlertBox = document.getElementById("batteryAlert");
 if (battSize == 0 && battNeeded > 1) {
   battAlertBox.style.display = "block";
   battAlertBox.innerHTML = `⚠️ <b>Batteria consigliata</b><br>
-  Il tuo consumo notturno è di <b>${nightCons.toFixed(1)} kWh</b> a notte.<br>
+  Il tuo consumo notturno stimato è di <b>${nightCons.toFixed(1)} kWh</b> a notte.<br>
   Senza batteria perderesti gran parte dell’energia solare prodotta di giorno.<br>
   Per coprire la notte servirebbero circa <b>${battCap} kWh</b> di accumulo.`;
 } else {
   battAlertBox.style.display = "none";
 }
 
-
  const euro = lastBill ? savedKwh*(lastBill/baseCons) : savedKwh*0.30;
  const invest = kwp*1600 + battCap*800;
-
- // Tetto insufficiente
  const roofWarning = panels<panelsByEnergy? 
    `⚠️ Tetto insufficiente: servirebbero ${panelsByEnergy} pannelli (${panelsByEnergy*PANEL_AREA} m²), ma il tetto ne permette solo ${panels} (${areaUsed} m²).` : "";
 
@@ -271,11 +252,9 @@ if (battSize == 0 && battNeeded > 1) {
  document.getElementById("save").innerText = "€ "+Math.round(euro);
  document.getElementById("areaUsed").innerText = areaUsed;
 
-
-
  // Calcoli dettagliati
  document.getElementById("calcBox").innerHTML = `
-<em>⚠️ Attenzione: i risultati mostrati hanno valore puramente indicativo. Consultare sempre un tecnico qualificato per progettazione e preventivi reali.</em><br><br>
+<em>⚠️ Risultati indicativi. Consultare un tecnico qualificato per preventivi reali.</em><br><br>
 ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 <b>1️⃣ Consumi</b><br>
 • Persone: ${people}<br>
@@ -287,7 +266,7 @@ ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 <b>3️⃣ Pannelli</b><br>
 • Area singolo pannello: ${PANEL_AREA} m²<br>
 • Pannelli max su tetto: ${maxPanelsRoof}<br>
-• Produzione singolo pannello: ${panelW} W × 1200 × ${tiltFactor.toFixed(2)} = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
+• Produzione singolo pannello: ${panelW} W × 1200 × 1.0 = ${kwhPerPanel.toFixed(0)} kWh/anno<br>
 • Pannelli richiesti dal fabbisogno: ${panelsByEnergy}<br>
 • Pannelli installati: ${panels}<br>
 • Area totale occupata: ${areaUsed} m²<br><br>
@@ -296,9 +275,8 @@ ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 • Produzione annua totale: ${Math.round(production)} kWh<br><br>
 <b>5️⃣ Accumulo</b><br>
 • Consumo giornaliero medio: ${dailyCons.toFixed(2)} kWh<br>
-• Quota notturna (${(nightPerc*100).toFixed(0)}%): ${nightCons.toFixed(2)} kWh<br>
+• Consumo notturno stimato (30%): ${nightCons.toFixed(2)} kWh<br>
 • Batteria necessaria (+20% sicurezza): ${battNeeded.toFixed(2)} kWh<br>
-• Batteria scelta: ${battSize} kWh ${battSize===0 ? `(consigliata: ${battCap} kWh = ${battNum} unità)` : ""}<br>
 • Batterie installate: ${battSize>0? battNum : 0}<br><br>
 <b>6️⃣ Risparmio</b><br>
 • Energia autoconsumata: ${Math.round(savedKwh)} kWh<br>
@@ -309,68 +287,45 @@ ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
  goStep(5);
 }
 
-  function updateRoofArea(){
+function updateRoofArea(){
   if(!roofPolygon) return;
-
   roof = google.maps.geometry.spherical.computeArea(roofPolygon.getPath());
-
   if (roof > 0) {
     document.getElementById("roofArea").innerText = roof.toFixed(1);
   }
 }
 
 function confirmRoof(){
-  if(!roofPolygon){
-    alert("Disegna prima il tetto sulla mappa");
-    return;
-  }
-
+  if(!roofPolygon){ alert("Disegna prima il tetto sulla mappa"); return; }
   updateRoofArea();
-
-  if(roof < 10){
-    alert("Area troppo piccola o non valida. Ridisegna il poligono.");
-    return;
-  }
-
+  if(roof < 10){ alert("Area troppo piccola o non valida. Ridisegna il poligono."); return; }
   alert("Tetto confermato: " + roof.toFixed(1) + " m²");
 }
 
-
-  function resetRoof(){
-  if(roofPolygon){
-    roofPolygon.setMap(null);
-    roofPolygon = null;
-  }
+function resetRoof(){
+  if(roofPolygon){ roofPolygon.setMap(null); roofPolygon = null; }
   roof = 0;
   document.getElementById("roofArea").innerText = "0";
   drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
 }
 
-  function safeContinue(){
+function safeContinue(){
   updateRoofArea();
-
-  if(!roofPolygon || roof < 10){
-    alert("Disegna e conferma prima il tetto");
-    return;
-  }
-
+  if(!roofPolygon || roof < 10){ alert("Disegna e conferma prima il tetto"); return; }
   goStep(3);
 }
 
 function downloadPDF(){
   const element = document.getElementById("step5");
-
   const opt = {
-    margin:       0.5,
-    filename:     'Simulazione_Fotovoltaico_SOSETEG.pdf',
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
-    jsPDF:        { unit: 'cm', format: 'a4', orientation: 'portrait' }
+    margin: 0.5,
+    filename: 'Simulazione_Fotovoltaico_SOSETEG.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
   };
-
   html2pdf().set(opt).from(element).save();
 }
-
 </script>
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
