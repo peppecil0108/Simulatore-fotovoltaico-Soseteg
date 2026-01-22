@@ -36,7 +36,7 @@ input, select, textarea {
 </a>
 
 
-<h2>☀️ Simulatore Fotovoltaico SOSETEG</h2>
+<h2>☀️ Simulatore Fotovoltaico SOSETEG SPA</h2>
 
 <!-- STEP 1 - INDIRIZZO -->
 <div class="step active" id="step1">
@@ -53,9 +53,10 @@ input, select, textarea {
 <h4>Disegna il tetto</h4>
 <div id="map"></div>
 <button class="secondary" onclick="resetRoof()">♻️ Cancella tetto</button>
+<button class="secondary" onclick="confirmRoof()">✔️ Conferma tetto</button>
 <p><b>Area:</b> <span id="roofArea">0</span> m²</p>
 <p><b>Zona:</b> <span id="zoneTxt">Centro</span></p>
-<button onclick="goStep(3)">Continua</button>
+<button onclick="safeContinue()">Continua</button>
 </div>
 </div>
 
@@ -165,21 +166,24 @@ function initMap(){
 
   drawingManager.setMap(map);
 
-  google.maps.event.addListener(drawingManager,"polygoncomplete",poly=>{
+google.maps.event.addListener(drawingManager, "polygoncomplete", poly => {
 
-    // cancella eventuale tetto precedente
-    if(roofPolygon) roofPolygon.setMap(null);
+  // cancella eventuale tetto precedente
+  if (roofPolygon) roofPolygon.setMap(null);
 
-    roofPolygon = poly;
-    drawingManager.setDrawingMode(null); // blocca ulteriori disegni
+  roofPolygon = poly;
+  drawingManager.setDrawingMode(null);
+  poly.setEditable(true);
 
-    calculateRoof();
+  // calcolo immediato
+  updateRoofArea();
 
-    // ricalcola se l'utente modifica il poligono
-    poly.getPath().addListener("set_at", calculateRoof);
-    poly.getPath().addListener("insert_at", calculateRoof);
-    poly.getPath().addListener("remove_at", calculateRoof);
-  });
+  // ricalcolo live se sposti i vertici
+  poly.getPath().addListener("set_at", updateRoofArea);
+  poly.getPath().addListener("insert_at", updateRoofArea);
+  poly.getPath().addListener("remove_at", updateRoofArea);
+});
+
 }
 
 
@@ -267,21 +271,6 @@ if (battSize == 0 && battNeeded > 1) {
  document.getElementById("save").innerText = "€ "+Math.round(euro);
  document.getElementById("areaUsed").innerText = areaUsed;
 
-  function calculateRoof(){
-  if(!roofPolygon) return;
-  roof = google.maps.geometry.spherical.computeArea(roofPolygon.getPath());
-  document.getElementById("roofArea").innerText = roof.toFixed(1);
-}
-
-  function resetRoof(){
-  if(roofPolygon){
-    roofPolygon.setMap(null);
-    roofPolygon = null;
-  }
-  roof = 0;
-  document.getElementById("roofArea").innerText = "0";
-  drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
-}
 
 
  // Calcoli dettagliati
@@ -319,6 +308,55 @@ ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
 
  goStep(5);
 }
+
+  function updateRoofArea(){
+  if(!roofPolygon) return;
+
+  roof = google.maps.geometry.spherical.computeArea(roofPolygon.getPath());
+
+  if (roof > 0) {
+    document.getElementById("roofArea").innerText = roof.toFixed(1);
+  }
+}
+
+function confirmRoof(){
+  if(!roofPolygon){
+    alert("Disegna prima il tetto sulla mappa");
+    return;
+  }
+
+  updateRoofArea();
+
+  if(roof < 10){
+    alert("Area troppo piccola o non valida. Ridisegna il poligono.");
+    return;
+  }
+
+  alert("Tetto confermato: " + roof.toFixed(1) + " m²");
+}
+
+
+  function resetRoof(){
+  if(roofPolygon){
+    roofPolygon.setMap(null);
+    roofPolygon = null;
+  }
+  roof = 0;
+  document.getElementById("roofArea").innerText = "0";
+  drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+}
+
+  function safeContinue(){
+  updateRoofArea();
+
+  if(!roofPolygon || roof < 10){
+    alert("Disegna e conferma prima il tetto");
+    return;
+  }
+
+  goStep(3);
+}
+
 </script>
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
