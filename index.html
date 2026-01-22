@@ -1,3 +1,4 @@
+e ora?
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -12,11 +13,12 @@ h2 { text-align:center; color:#2e7d32; }
 button { padding:12px; width:100%; margin-top:12px; cursor:pointer; background:#2e7d32; color:#fff; border:none; border-radius:6px; font-size:16px; }
 button.secondary { background:#546e7a; }
 label { font-weight:600; margin-top:10px; display:block; font-size:16px; }
+small { font-weight:400; font-size:0.85rem; color:#555; }
 input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #ccc; font-size:16px; }
 .box { background:#fff; border-radius:8px; padding:16px; margin-top:14px; box-shadow:0 2px 12px rgba(0,0,0,.1); }
 .calc { font-size:0.9rem; background:#f1f5f9; padding:14px; border-radius:6px; line-height:1.55; }
 #map { height:500px; width:100%; border-radius:8px; margin-top:8px; }
-#roofWarningBox { display:none; color:#856404; background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:8px; }
+#roofWarningBox { display:none; color:#856404; background:#fff3cd; padding:8px; border-radius:4px; margin-bottom:8px; white-space: pre-line; }
 </style>
 </head>
 <body>
@@ -66,9 +68,11 @@ input, select { padding:8px; width:100%; border-radius:4px; border:1px solid #cc
 
 <label>Consumo annuo (kWh, opzionale)</label>
 <input type="number" id="manualCons">
+<small>Se lasci vuoto, il simulatore stima il consumo in base al numero di persone.</small>
 
 <label>Ultima bolletta (€)</label>
 <input type="number" id="lastBill">
+<small>Inserisci l'importo dell'ultima bolletta bimestrale (2 mesi)</small>
 
 <p style="font-size:0.9rem; color:#555;">Consumo notturno stimato al 30%, inclinazione pannelli fissa 30° (ottimale).</p>
 
@@ -203,10 +207,9 @@ function calcAzimuth(polygon){
 
 // Fattore riduzione produzione in base ad azimut
 function azimuthFactor(az){
-  // Sud = 180°, max 1, decrescita verso Est/Ovest
   let diff = Math.abs(az-180);
   if(diff>180) diff=360-diff;
-  return Math.max(0.5, 1 - diff/180); // 0.5 = minimo 50% se Nord
+  return Math.max(0.5, 1 - diff/180);
 }
 
 // Calcolo principale
@@ -218,8 +221,8 @@ function calculate(){
  const battSize = +document.getElementById("battery").value;
 
  const baseCons = manualCons || consumoMedio(people);
- const target = baseCons*1.2;
- const panelKwp = panelW/1000;
+ const target = baseCons * 1.2;
+ const panelKwp = panelW / 1000;
 
  const tiltFactor = Math.cos((PANEL_TILT-30)*Math.PI/180);
  const az = calcAzimuth(roofPolygon);
@@ -235,9 +238,6 @@ function calculate(){
  const production = kwp*yieldPerKwp;
  const areaUsed = panels*PANEL_AREA;
 
- const dayPerc = 1-NIGHT_PERCENT;
- const savedKwh = Math.min(baseCons, production*dayPerc);
-
  const dailyCons = baseCons/365;
  const nightCons = dailyCons*NIGHT_PERCENT;
  let battNeeded = nightCons/0.8;
@@ -245,37 +245,53 @@ function calculate(){
  let battCap=0;
 
  if(battSize>0){
-   battNum=Math.ceil(battNeeded/battSize);
-   battCap=battNum*battSize;
+   battNum = Math.ceil(battNeeded/battSize);
+   battCap = battNum * battSize;
  } else {
    let suggested = BATTERY_OPTIONS.find(b=>b>=battNeeded) || 10;
-   battNum=Math.ceil(battNeeded/suggested);
-   battCap=battNum*suggested;
+   battNum = Math.ceil(battNeeded/suggested);
+   battCap = battNum * suggested;
  }
 
  const battAlertBox = document.getElementById("batteryAlert");
-if (battSize == 0 && battNeeded > 1) {
-  battAlertBox.style.display = "block";
-  battAlertBox.innerHTML = `⚠️ <b>Batteria consigliata</b><br>
-  Consumo notturno stimato: <b>${nightCons.toFixed(1)} kWh</b>.<br>
-  Servirebbero circa <b>${battCap} kWh</b> di accumulo per coprire la notte.`;
-} else {
-  battAlertBox.style.display = "none";
-}
+ if(battSize == 0 && battNeeded > 1){
+   battAlertBox.style.display = "block";
+   battAlertBox.innerHTML = `⚠️ <b>Batteria consigliata</b><br>
+   Consumo notturno stimato: <b>${nightCons.toFixed(1)} kWh</b>.<br>
+   Servirebbero circa <b>${battCap} kWh</b> di accumulo per coprire la notte.`;
+ } else {
+   battAlertBox.style.display = "none";
+ }
 
- const euro = lastBill ? savedKwh*(lastBill/baseCons) : savedKwh*0.30;
+ let savedKwh;
+ if(battSize > 0){
+   savedKwh = Math.min(baseCons, production);
+ } else {
+   const dayPerc = 1 - NIGHT_PERCENT;
+   savedKwh = Math.min(baseCons, production * dayPerc);
+ }
+
+ let euro = 0;
+ if(lastBill){
+   const annualBill = lastBill * 6;
+   const costPerKwh = annualBill / baseCons;
+   euro = savedKwh * costPerKwh;
+ } else {
+   euro = savedKwh * 0.30;
+ }
+
  const invest = kwp*1600 + battCap*800;
  const roofWarning = panels<panelsByEnergy? 
    `⚠️ Tetto insufficiente: servirebbero ${panelsByEnergy} pannelli (${panelsByEnergy*PANEL_AREA} m²), ma il tetto ne permette solo ${panels} (${areaUsed} m²).` : "";
+ const surplusMsg = production > baseCons ? "⚠️ Attenzione: la produzione supera i consumi annui. L’eccesso può essere venduto o non utilizzato." : "";
 
- document.getElementById("roofWarningBox").innerText = roofWarning;
+ document.getElementById("roofWarningBox").innerText = roofWarning + (surplusMsg ? "\n" + surplusMsg : "");
  document.getElementById("panels").innerText = panels;
  document.getElementById("kwp").innerText = kwp.toFixed(2)+" kWp";
  document.getElementById("prod").innerText = Math.round(production)+" kWh";
  document.getElementById("batt").innerText = battCap+" kWh";
  document.getElementById("save").innerText = "€ "+Math.round(euro);
  document.getElementById("areaUsed").innerText = areaUsed;
-
  document.getElementById("calcBox").innerHTML = `
 <em>⚠️ Risultati indicativi. Consultare sempre un tecnico Soseteg per preventivi reali.</em><br><br>
 ${roofWarning ? `<b>${roofWarning}</b><br><br>` : ""}
@@ -351,6 +367,7 @@ function downloadPDF(){
 }
 </script>
 
+<!-- API Google Maps + html2pdf -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyByTl4pZ68bM3eKJk3kg_iD4YIc7NUL64g&libraries=places,drawing,geometry&callback=initMap" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
